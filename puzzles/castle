@@ -1,0 +1,30 @@
+# a comment on a line
+# rules:
+#   property:
+#     $Cylindrical
+#   assignment:
+#     $character=nav:number,symbol:color
+#     example:
+#     $x=Meet,Hexagon
+
+%
+
+$S=Start
+$e=End
+$.=Meet
+$-=PathHorizontal
+$|=PathVertical
+$b=Square:Black
+$w=Square:White
+
+  e
+.-.
+|b|
+S-.
+|w|
+.-.
+
+%
+
+Se
+
