@@ -1,5 +1,5 @@
 %{
-    open Puzzle
+    open RawPuzzleType
 %}
 
 %token Eof
@@ -7,13 +7,13 @@
 %token <string> Rule
 %token PuzzleSeparator
 %token <string> PuzzleLine
-%start <rawPuzzle list> parse
+%start <raw_file> parse
 
 %%
 
 let parse :=
-| NewLine*; p=puzzle*; Eof;
-    { p }
+| NewLine*; rules=rule*; p=puzzle*; Eof;
+    { rules, p }
 
 let puzzle :=
 | PuzzleSeparator; NewLine*; rules=rule*; firstLine=PuzzleLine; lines=line+;

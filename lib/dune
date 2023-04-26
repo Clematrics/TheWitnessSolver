@@ -1,5 +1,7 @@
 (library
- (name TheWitnessSolver))
+ (name TheWitnessSolver)
+ (modules_without_implementation definition rawPuzzleType ruleType)
+ (libraries vg))
 
 (ocamllex rawLexer ruleLexer)
 

@@ -1,5 +1,7 @@
 %{
-    open Puzzle
+    open Definition
+    open Property
+    open RuleType
 
     let ruleTable = Hashtbl.create 10
     let _ = List.iter (fun (str, value) -> Hashtbl.add ruleTable str value) [
@@ -107,7 +109,7 @@
 %token Equal
 %token Comma
 %token Colon
-%start <rule> parse
+%start <Rule.t> parse
 
 %%
 

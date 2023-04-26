@@ -1,5 +1,5 @@
 # a comment on a line
-# rules:
+# rules: (global if at top)
 #   property:
 #     $Cylindrical
 #   assignment:
