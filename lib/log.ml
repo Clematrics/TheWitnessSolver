@@ -19,7 +19,6 @@ type _ Effect.t +=
 
 type history = string list
 type log = { history : history; has_errors : bool }
-
 type 'a log_result = ('a * history, history) result
 
 let return x : 'a log_result = Ok (x, [])
@@ -27,15 +26,28 @@ let return x : 'a log_result = Ok (x, [])
 let bind (r : 'a log_result) (f : 'a -> 'b log_result) : 'b log_result =
   match r with
   | Ok (x, h) -> (
-      match f x with
-      | Ok (y, h') -> Ok (y, h @ h')
-      | Error h' -> Error (h @ h'))
+      match f x with Ok (y, h') -> Ok (y, h @ h') | Error h' -> Error (h @ h'))
   | Error e -> Error e
 
-let (let+) = bind
+let ( let+ ) = bind
 
-let rec logging_loop :
-    type a. log -> (a, 'b) continuation -> a -> 'b log_result =
+let map (r : 'a log_result) (f : 'a -> 'b) : 'b log_result =
+  match r with Ok (x, h) -> Ok (f x, h) | Error h' -> Error h'
+
+let ( let* ) = map
+
+let merge (log_list : 'a log_result list) =
+  let res, hist =
+    List.fold_left
+      (fun (l, (acc_h : history)) -> function
+        | Ok (x, h) -> (x :: l, h @ acc_h)
+        | Error h -> (l, h @ acc_h))
+      ([], []) (List.rev log_list)
+  in
+  Ok (res, hist)
+
+let rec logging_loop : type a. log -> (a, 'b) continuation -> a -> 'b log_result
+    =
  fun log k v ->
   let rec handler =
     {

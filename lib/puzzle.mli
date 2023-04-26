@@ -8,6 +8,5 @@ type t = {
   symbols : (symbol * color) array array;
 }
 
-val from_chn : in_channel -> (t Log.log_result list) Log.log_result
+val from_chn : in_channel -> t list Log.log_result
 val validate : 'a -> 'a Log.log_result
-

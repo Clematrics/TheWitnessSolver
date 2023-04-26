@@ -49,8 +49,8 @@ let from_raw_unchecked global_properties global_assignments raw =
   log
     (fun () ->
       let width, height = RawPuzzle.get_dimension raw in
-      let layout = Array.make_matrix height width EmptyNav in
-      let symbols = Array.make_matrix height width (EmptySymbol, Any) in
+      let layout = Array.make_matrix width height EmptyNav in
+      let symbols = Array.make_matrix width height (EmptySymbol, Any) in
       raw.lines
       |> List.iteri (fun y ->
              String.iteri (fun x c ->
@@ -84,4 +84,4 @@ let from_chn chn =
   let+ global_properties, global_assignments =
     split_rules PropertySet.empty init_assignments global_rules
   in
-  return @@ List.map (from_raw global_properties global_assignments) raw_puzzles
+  List.map (from_raw global_properties global_assignments) raw_puzzles |> merge
