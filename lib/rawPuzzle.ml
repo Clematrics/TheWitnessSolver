@@ -10,10 +10,10 @@ include RawPuzzleType
 let list_trim value list =
   let rec trim_start = function
     | [] -> []
-    | x :: l when x == value -> trim_start l
-    | _ :: l (* x != value*) -> l
+    | x :: l when x = value -> trim_start l
+    | l (* x != value *) -> l
   in
-  trim_start list |> List.rev |> trim_start
+  trim_start list |> List.rev |> trim_start |> List.rev
 
 let from_chn chn : raw_file =
   let raw_lex_buf = Lexing.from_channel chn in

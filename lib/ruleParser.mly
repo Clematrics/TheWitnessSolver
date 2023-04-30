@@ -14,6 +14,7 @@
 %token <Definition.shape> Shape
 %token <Definition.rotation> Rotation
 %token <Definition.color> Color
+%token <bool> Tag
 %token <char> Character
 %start <Rule.t> parse
 
@@ -26,18 +27,6 @@ let parse :=
     {
         Assignment (c, fst ids, snd ids)
     }
-// | id=Identifier; Eos;
-//     { Property (find_rule id) }
-// | c=character; Equal; id1=identifier; id2=other_identifier?; Eos;
-//     {
-//         match id1, id2 with
-//         | SymbolType s, None -> Assignment (c, None, Some s)
-//         | NavType n, None -> Assignment (c, Some n, None)
-//         | SymbolType s, Some (NavType n)
-//         | NavType n, Some (SymbolType s) -> Assignment (c, Some n, Some s)
-//         | NavType _, Some (NavType _) -> raise (Failure "Cannot have two navigation elements in the same assignment")
-//         | SymbolType _, Some (SymbolType _) -> raise (Failure "Cannot have two symbols in the same assignment")
-//     }
 
 let character ==
 | i=Int; { char_of_int (i + int_of_char '0') }
@@ -54,6 +43,14 @@ let symbols ==
 
 let navigation :=
 | ~=Navigation; <>
+| n=Navigation; Colon; b=Tag;
+    {
+        match n with
+        | Start _ -> Start b
+        | PathVertical _ -> PathVertical b
+        | PathHorizontal _ -> PathHorizontal b
+        | _ -> raise (Failure "Cannot use a tag qualifier on navigation symbols other than Start or Paths")
+    }
 | n=Navigation; Colon; i=Int;
     {
         match n with
@@ -75,32 +72,3 @@ let symbol :=
 let shape ==
 | sh=Shape; { sh, AnyRotation }
 | sh=Shape; Colon; r=Rotation; { sh, r }
-
-// let other_identifier :=
-// | Comma; ~=identifier; <>
-
-// let identifier :=
-// | id=Identifier; qualifier=qualifier*;
-//     {
-//         let id = find_id id in
-//         match qualifier with
-//         | Some (EndIdentifier n) -> begin
-//             (* Number only valid if End navigation element *)
-//             match id with
-//             | NavType (End _) -> NavType (End n)
-//             | _ -> raise (Failure "Cannot specify an identifier for navigation elements other than end bits")
-//             end
-//         | Some (SymbolColor c) -> begin
-//             (* Color only valid if symbol *)
-//             match id with
-//             | SymbolType (s, _) -> SymbolType (s, c)
-//             | NavType _ -> raise (Failure "Cannot specify a color for navigation elements other than end bits")
-//             end
-//         | None -> id
-//     }
-
-// let qualifier :=
-// | Colon; i=Int;
-//     { EndIdentifier i }
-// | Colon; id=Identifier;
-//     { SymbolColor (find_color id) }

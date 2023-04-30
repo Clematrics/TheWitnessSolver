@@ -1,5 +1,4 @@
 open Definition
-
 module Board : Map.S with type key = Coords.t
 
 type element = {
@@ -8,7 +7,6 @@ type element = {
   connected_paths : OffsetSet.t;
   connected_cells : OffsetSet.t;
 }
-
 
 type t = {
   properties : PropertySet.t;

@@ -50,24 +50,24 @@ let split_rules init_properties (init_assignments : assignments) rules :
 
 let path_connection = function
   | Meet -> OffsetSet.adjacent
-  | Start -> OffsetSet.adjacent
+  | Start _ -> OffsetSet.adjacent
   | End _ -> OffsetSet.all
-  | PathHorizontal | CutPathHorizontal -> OffsetSet.horizontal
-  | PathVertical | CutPathVertical -> OffsetSet.vertical
+  | PathHorizontal _ -> OffsetSet.horizontal
+  | PathVertical _ -> OffsetSet.vertical
 
 let optional_connection = function
-  | Start | Meet -> true
+  | Start _ | Meet -> true
   | End _ -> true (* TODO: special case *)
-  | PathHorizontal | CutPathHorizontal | PathVertical | CutPathVertical -> false
+  | PathHorizontal _ | PathVertical _ -> false
 
 let string_of_path = function
   | Meet -> "Meet"
-  | Start -> "Start"
+  | Start _ -> "Start"
   | End i -> Printf.sprintf "End %i" i
-  | PathHorizontal -> "PathHorizontal"
-  | PathVertical -> "PathVertical"
-  | CutPathHorizontal -> "CutPathHorizontal"
-  | CutPathVertical -> "CutPathVertical"
+  | PathHorizontal false -> "PathHorizontal:Cut"
+  | PathHorizontal true -> "PathHorizontal"
+  | PathVertical false -> "PathVertical:Cut"
+  | PathVertical true -> "PathVertical"
 
 let string_of_offset =
   let open Offset in
@@ -93,19 +93,19 @@ let from_raw_unchecked global_properties global_assignments raw =
       let symbols = Array.make_matrix width height None in
       let lines = Array.of_list raw.lines in
       for y = 0 to height - 1 do
-        for x = 0 to width - 1 do
-          let c = lines.(y).[x] in
-          let nav, sym =
-            try AssignmentMap.find c assignments
-            with Not_found ->
-              error
-                (Printf.sprintf "Cannot find character %c at line %i column %i"
-                   c (y + 1) (x + 1));
-              (None, None)
-          in
-          layout.(x).(y) <- nav;
-          symbols.(x).(y) <- sym
-        done
+        lines.(y)
+        |> String.iteri (fun x c ->
+               let nav, sym =
+                 try AssignmentMap.find c assignments
+                 with Not_found ->
+                   error
+                     (Printf.sprintf
+                        "Cannot find character %c at line %i column %i" c
+                        (y + 1) (x + 1));
+                   (None, None)
+               in
+               layout.(x).(y) <- nav;
+               symbols.(x).(y) <- sym)
       done;
       let get arr (x, y) =
         if x >= 0 && x < width && y >= 0 && y < height then arr.(x).(y)
@@ -208,18 +208,17 @@ let from_raw_unchecked global_properties global_assignments raw =
       *)
       let is_C { path; _ } =
         Option.fold ~none:false
-          ~some:(function Start | Meet -> true | _ -> false)
+          ~some:(function Start _ | Meet -> true | _ -> false)
           path
       and is_V { path; _ } =
         Option.fold ~none:false
           ~some:(function
-            | Start | Meet | PathVertical | CutPathVertical -> true | _ -> false)
+            | Start _ | Meet | PathVertical _ -> true | _ -> false)
           path
       and is_H { path; _ } =
         Option.fold ~none:false
           ~some:(function
-            | Start | Meet | PathHorizontal | CutPathHorizontal -> true
-            | _ -> false)
+            | Start _ | Meet | PathHorizontal _ -> true | _ -> false)
           path
       and is_empty = function
         | None -> true
@@ -228,7 +227,7 @@ let from_raw_unchecked global_properties global_assignments raw =
       let corners =
         Board.filter
           (fun _ { path; _ } ->
-            match path with Some Meet | Some Start -> true | _ -> false)
+            match path with Some Meet | Some (Start _) -> true | _ -> false)
           !board
       in
       let cells =
@@ -306,9 +305,10 @@ let from_raw_unchecked global_properties global_assignments raw =
                        | None ->
                            error
                              (Printf.sprintf
-                                "The symbol at coords (%i, %i) is neither \
-                                 in a cell nor on a path" (* TODO: add symbol description *)
-                                x y); None)
+                                "The symbol at coords (%i, %i) is neither in a \
+                                 cell nor on a path"
+                                (* TODO: add symbol description *) x y);
+                           None)
                      !board)
         done
       done;

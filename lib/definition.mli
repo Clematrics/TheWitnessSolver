@@ -1,11 +1,15 @@
 type nav =
   | Meet
-  | Start
-  | End of int
-  | PathHorizontal
-  | PathVertical
-  | CutPathHorizontal
-  | CutPathVertical
+  | Start of bool
+      (** [Start b], where [b] indicates if the start is accessible [b = true]
+          or disabled/inaccessible [b = false] *)
+  | End of int  (** [End i], where [i] uniquely identifies the end *)
+  | PathHorizontal of bool
+      (** [PathHorizontal b], where [b] indicated if the path is full [b = true]
+          or cut [b = false] *)
+  | PathVertical of bool
+      (** [PathVertical b], where [b] indicated if the path is full [b = true]
+          or cut [b = false] *)
 
 (** All combinations of red, green and blue, and a wildcard color *)
 type color =
@@ -22,7 +26,7 @@ type color =
 
 (** Shape made of small blocks *)
 type shape =
-(* TODO: Add other known shapes & custom ones *)
+  (* TODO: Add other known shapes & custom ones *)
   | Block
   | Bar2
   | Bar3

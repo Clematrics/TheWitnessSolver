@@ -19,12 +19,10 @@
         "Cylindrical", Property Cylindrical;
         (* Navigation *)
         "Meet", Navigation Meet;
-        "Start", Navigation Start;
+        "Start", Navigation (Start true);
         "End", Navigation (End 0);
-        "PathHorizontal", Navigation PathHorizontal;
-        "PathVertical", Navigation PathVertical;
-        "CutPathHorizontal", Navigation CutPathHorizontal;
-        "CutPathVertical", Navigation CutPathVertical;
+        "PathHorizontal", Navigation (PathHorizontal true);
+        "PathVertical", Navigation (PathVertical true);
         (* Symbol *)
         "Hexagon", Symbol Hexagon;
         "Square", Symbol Square;
@@ -60,6 +58,9 @@
         "Rotation180", Rotation Rotation180;
         "Rotation270", Rotation Rotation270;
         "AnyRotation", Rotation AnyRotation;
+        (* Tags *)
+        "Disabled", Tag false;
+        "Cut", Tag false;
     ]
 }
 

@@ -1,5 +1,4 @@
 include Set.Make (Offset)
-
 open Offset
 
 let make_set = List.fold_left (Fun.flip add) empty
