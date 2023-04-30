@@ -94,7 +94,7 @@ let from_raw_unchecked global_properties global_assignments raw =
       let lines = Array.of_list raw.lines in
       for y = 0 to height - 1 do
         for x = 0 to width - 1 do
-          let c = lines.(x).[y] in
+          let c = lines.(y).[x] in
           let nav, sym =
             try AssignmentMap.find c assignments
             with Not_found ->
