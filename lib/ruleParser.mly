@@ -68,6 +68,12 @@ let symbol :=
         | AntiShape _ -> AntiShape (sh, r), AnyColor
         | _ -> raise (Failure "Cannot use an int qualifier on navigation symbols other than End")
     }
+| s=Symbol; Colon; i=Int;
+    {
+        match s with
+        | Triangle _ -> Triangle i, AnyColor
+        | _ -> raise (Failure "Cannot use an int qualifier on symbols other than Triangle")
+    }
 
 let shape ==
 | sh=Shape; { sh, AnyRotation }

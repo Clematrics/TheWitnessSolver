@@ -30,17 +30,17 @@
         "Shape", Symbol (Shape (Block, NoRotation));
         "AntiShape", Symbol (AntiShape (Block, NoRotation));
         "Triad", Symbol Triad;
-        "Triangle", Symbol (Triangle 0);
+        "Triangle", Symbol (Triangle 1);
         (* Shape *)
         "Block", Shape Block;
         "Bar2", Shape Bar2;
         "Bar3", Shape Bar3;
         "Bar4", Shape Bar4;
         "Corner", Shape Corner;
-        "L", Shape L;
-        "LMirrored", Shape LMirrored;
-        "T", Shape T;
-        "SmallT", Shape SmallT;
+        "LPiece", Shape LPiece;
+        "JPiece", Shape JPiece;
+        "T4Piece", Shape T4Piece;
+        "T5Piece", Shape T5Piece;
         "Block4", Shape Block4;
         "Diagonal2", Shape Diagonal2;
         (* Color *)

@@ -32,10 +32,10 @@ type shape =
   | Bar3
   | Bar4
   | Corner
-  | L
-  | LMirrored
-  | T
-  | SmallT
+  | LPiece
+  | JPiece
+  | T4Piece
+  | T5Piece
   | Block4
   | Diagonal2
 
