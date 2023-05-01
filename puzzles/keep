@@ -1,0 +1,160 @@
+$o=Start
+$0=End:0
+$1=End:1
+$+=Meet
+$-=PathHorizontal
+$|=PathVertical
+
+% Back puzzle 1 (yellow)
+$"=PathHorizontal:Cut
+$==PathVertical:Cut
+$_=PathHorizontal,Hexagon
+
+  0
++-+"+-+-+
+| | | | |
++-+"+-+_+
+| | | | =
++-+-+-+-+
+| | = | |
++-+_+"+-+
+| | | | |
++-+-+-+-o
+
+% Back puzzle 1 (yellow) from the keep (visually obstructed)
+$"=PathHorizontal:Cut
+$==PathVertical:Cut
+$_=PathHorizontal,Hexagon
+
+  0
++"+"+-+-+
+| | | | |
++-+"+-+_+
+| | | | =
++-+-+-+-+
+| | = = |
++-+_+"+-+
+| | | | |
++-+-+-+-o
+
+% Back puzzle 2 (magenta)
+$==PathVertical:Cut
+$b=Square:Black
+$w=Square:White
+
+ +-+-+-+-+
+ |b| | |b|
+ +-+-+-+-+
+ |b| | |b|
+0+-+-+-+-+
+ |w| | |w=
+ +-+-+-+-+
+ |w| | |w|
+ +-+-+-+-o
+
+% Back puzzle 2 (magenta) from the keep (visually obstructed)
+$"=PathHorizontal:Cut
+$==PathVertical:Cut
+$b=Square:Black
+$w=Square:White
+
+ +-+-+-+"+
+ |b| = |b|
+ +-+-+-+-+
+ |b| | |b|
+0+-+-+-+-+
+ |w| | |w=
+ +-+-+-+-+
+ |w| | |w|
+ +"+-+-+-o
+
+% Back puzzle 3 (green)
+$4=Shape:Bar4:Rotation90
+$L=Shape:LPiece:Rotation270
+
+0
++-+-+-+-+
+| | | |4|
++-+-+-+-+
+| | | | |
++-+-+-+-+
+| | | | |
++-+-+-+-+
+| | |L| |
++-+-+-+-o
+
+% Back puzzle 3 (green) from the keep (visually obstructed)
+$"=PathHorizontal:Cut
+$==PathVertical:Cut
+$4=Shape:Bar4:Rotation90
+$L=Shape:LPiece:Rotation270
+
+0
++-+-+"+-+
+| | | |4|
++-+-+-+-+
+| | | | |
++"+-+-+-+
+| | | | |
++-+-+-+-+
+| | |L| |
++-+-+-+-o
+
+% Back puzzle 4 (blue)
+$AxialSymmetry
+$J=Shape:JPiece:AnyRotation
+
+ +-+-+-+-o
+ | | |J| |
+ +-+-+-+-+
+ | | | | |
+0+-+-+-+-+1
+ | | | | |
+ +-+-+-+-+
+ | |J| | |
+ o-+-+-+-+
+
+% Back puzzle 4 (blue) from the keep (visually obstructed)
+$AxialSymmetry
+$"=PathHorizontal:Cut
+$==PathVertical:Cut
+$J=Shape:JPiece:AnyRotation
+
+ +-+-+-+-o
+ | | |J| |
+ +-+-+-+-+
+ | | | | |
+0+-+-+-+-+1
+ | | | | |
+ +-+-+-+-+
+ | =J| | |
+ o-+"+-+"+
+
+% Final puzzle
+$"=PathHorizontal:Cut
+$==PathVertical:Cut
+$_=PathHorizontal,Hexagon
+$b=Square:Black
+$w=Square:White
+$4=Shape:Bar4:Rotation90
+$J=Shape:JPiece:Rotation270
+$*=Shape:JPiece:AnyRotation
+
++-+-+-+-+-+-+-+-+
+| |J| | |b| | |b|
++-+-+-+-+-+-+-+-+
+| | | | |b| | |b|
++-+-+-+-+-+-+-+-+
+| | | | |w| | |w=
++-+-+-+-+-+-+-+-+
+|4| | | |w| | |w|
++-+-+-+-+-+"+-+-+
+| | |*| | | | | |
++-+-+-+-+-+"+-+_+
+| | | | | | | | =
++-+-+-+-+-+-+-+-+
+| | | | | | = | |
++-+-+-+-+-+_+"+-+
+| |*| | | | | | |
++-+-+-+-+-+-+-+-o
+  0

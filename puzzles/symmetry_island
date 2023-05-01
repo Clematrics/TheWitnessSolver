@@ -1,0 +1,402 @@
+$o=Start
+$0=End:0
+$1=End:1
+$2=End:2
+$3=End:3
+$+=Meet
+$-=PathHorizontal
+$|=PathVertical
+$"=PathHorizontal:Cut
+$==PathVertical:Cut
+$.=Meet,Hexagon
+$_=PathHorizontal,Hexagon
+$!=PathVertical,Hexagon
+$B=Meet,Hexagon:Cyan
+$b=PathHorizontal,Hexagon:Cyan
+$l=PathVertical,Hexagon:Cyan
+$Y=Meet,Hexagon:Yellow
+$y=PathHorizontal,Hexagon:Yellow
+$i=PathVertical,Hexagon:Yellow
+
+% Entrance
+
++-+-+-+-+0
+| | | | |
++-+-+-+-+
+! |   | |
++-+-+-+-+
+| | ! | |
+o_+-+_+-+
+
+% Panel 1.1
+$HorizontalSymmetry
+
++-+_+-+
+| | | |
+o-.-.-+0
+| | | |
+o-.-.-+1
+| | | |
++-+_+-+
+
+% Panel 1.2
+$HorizontalSymmetry
+
++_+-+-+
+| | | !
+o-+-+-+0
+| | | |
+o-+_+-+1
+| | | |
++-+-+-+
+
+% Panel 1.3
+$HorizontalSymmetry
+
++-+_+-+-+-+
+| | | ! | |
++-+-+-+-+-+
+| | | | | |
+o-+-+-+-.-+0
+| | | | | |
+o-+_+-+-+-+1
+| | | | | |
+.-+-+_+-+-+
+| | | | | |
++-+-+-+-.-+
+
+% Panel 1.4
+$AxialSymmetry
+
+ +-+_+-+-+-+
+ | | | ! | |
+ +-+-+-+-+-+
+ | | | | | |
+ o-+-+-+-.-+1
+ | | | | | |
+0+-+_+-+-+-o
+ | | | | | |
+ .-+-+_+-+-+
+ | | | | | |
+ +-+-+-+-.-+
+
+% Panel 1.5
+$AxialSymmetry
+
+ o-+-+-+_+-+
+ | | | | | |
+0+_+-.-+-+-.
+ | | | | | |
+ +-+-+-+-.-+
+ | | | ! | |
+ +-+-+-+-+-+
+ | | | | | |
+ +-+-+-+-+-+1
+ | | | | | |
+ +-+-+-+-+-o
+
+% Panel 2.1
+$VerticalSymmetry
+$BlueYellowPath
+
+  0 1
++-+-+-+
+| | | |
++-B-Y-+
+l | | i
++-B-Y-+
+| | | |
++-o-o-+
+
+% Panel 2.2
+$AxialSymmetry
+$BlueYellowPath
+
+0B-+-+-o
+ | | | |
+ +-+-+-+
+ | | | |
+ +-+-+-+
+ | i | |
+ o-+-+-+1
+
+% Panel 2.3
+$AxialSymmetry
+$BlueYellowPath
+
+   1
+ +-+-+-+-+-o
+ | | | | | |
+0+-+-+-+-+-B
+ | | | | | |
+ +-+-+-Y-+-+
+ | | | | | |
+ +-+-B-+-+-+
+ | | | | | |
+ +-+-+-+-+-+2
+ | | | | | |
+ o-Y-+-+-+-+
+         3
+
+% Panel 2.4
+$AxialSymmetry
+$BlueYellowPath
+
+  0
++-B-+-o
+| | | |
+B-.-+-Y
+| | | |
+B-+-Y-.
+| | | |
+o-+-Y-+
+    1
+
+% Panel 2.5
+$AxialSymmetry
+$BlueYellowPath
+
+0
++-+-+-+-+-o
+| | | | | |
++-.-+-+-+-+
+| | | | | |
++-+-+-+-+-+
+| | | | | |
++-+-+-+-+-+
+| | | | | |
++-+-+-B-+-+
+| | | | | i
+o-+-+-+-+-+
+          1
+
+% Panel 2.6
+$AxialSymmetry
+$BlueYellowPath
+
+0
++_+-+-+-+-o
+| | | ! | |
++-+-+-+-+-Y
+| | | | | |
++-Y-+-+-+-+
+| | | | | !
++-+-.-+-+-+
+| | | | | |
++-+-+-B-+-+
+| | | | | |
+o-+-+-+-+-+
+          1
+
+% Panel 3.1
+$AxialSymmetry
+$BlueYellowPath
+
+            0
+B-+-+-+-+-B-+
+| | | | | | |
++-+-+-+-+-+b+
+| | | | | | |
++-+-+-+-+-+-+
+| | | | | | |
+o-+-+-+-+-+-o
+| | | | | | |
++-+-B-+-+y+-+
+| | | | | | |
++-+-+-+-+-+-+
+| | | | | i |
++-+-+-+-+-+-+
+1
+
+% Panel 3.2
+$AxialSymmetry
+$BlueYellowPath
+
+            0
+B-+-+-+-+-Y-+
+| | | | | | |
++-+-+-+-+-+y+
+| | | | | | |
++-+-+-+-+-+-+
+| | | | | | |
+o-+-+-+-+-+-o
+| | | | | | |
++-+-B-+-+y+-+
+| | | | | | |
++-+-+-+-+-+-+
+| | | | | i |
++-+-+-+-+-+-+
+1
+
+% Panel 3.3
+$AxialSymmetry
+$BlueYellowPath
+
+ +-+-+-B-B-+
+ | | | | | |
+ o-+-+-+-+-o
+ | | | | | |
+ +-+-+-+-B-+1
+ | | | | | |
+0+-+-+-Y-+-+
+ | | | | | |
+ o-+-+-+-+-o
+ | | | | | |
+ +-+-+-+-+-+
+
+% Panel 3.4
+$VerticalSymmetry
+$BlueYellowPath
+
+0       1
++-+-+-+-+
+| | | | |
++-Y-+-B-+
+| | | | |
+o-+-+-+-o
+| | | | |
++-+-+-+-+
+| | | | |
++-+-+-+-+
+
+% Panel 3.5
+$AxialSymmetry
+$BlueYellowPath
+
+        0
++-+-+-+-+
+| | | | |
++-Y-+-B-+
+| | | | |
+o-+-+-+-o
+| | | | |
++-+-+-+-+
+| | | | |
++-+-+-+-+
+1
+
+
+% Panel 3.6
+$AxialSymmetry
+$BlueYellowPath
+
+ o-+-+-+-+-+
+ | | | i | |
+ +-+-+-+-+b+
+ | | | | | |
+ +-+-+-+-+-+1
+ | | | | | |
+0+-+-+-B-+-+
+ | | | | | |
+ +-+-+-+-+-+
+ | | | | | |
+ +-+-+-+-+-o
+
+% Panel 3.7
+$AxialSymmetry
+$BlueYellowPath
+
+ o-+-+-+-Y-+
+ | | | | | |
+ +-+-+-+-+-+
+ | | | | | |
+ +-+-Y-+-+-+1
+ | | | | | |
+0+-Y-+-+-+-+
+ | | | | | |
+ +-+-+-+-+-+
+ | | | | | |
+ +-+-+-+-+-o
+
+% Laser entrance
+$AxialSymmetry
+
+0
+ +-+-+-+_o
+ | | | | |
+ +-+-+-+-+
+ | | | | |
+ +-+-+-+-+
+ | | | | |
+ +_+-+-+-+
+ | | | | |
+ o-+-+-+-+
+          1
+
+% Laser yellow 1
+# $YellowPath
+
+   0+-+-+
+    | i =
+    +-+-+
+    i | |
++-+-+-+-+
+i | | = |
++-+-+"+-+
+| | | = |
+o-+y+-+-Y
+
+% Laser yellow 2
+# $YellowPath
+
+  +-+y+
+  | = |
++-+-+-+-+
+| | | i |
+o-+-Y-+-+0
+| i | | |
++-+-+-+y+
+  | | |
+  +y+-+
+
+% Laser yellow 3
+# $YellowPath
+
+  +-oy+
+  | i |
++-+-+-+-+0
+| | | | i
+oy+-+-+-o
+| i | | i
++-+-+-+-+
+  | i |
+  +yo-+
+
+% Laser blue 1
+# $BluePath
+
++-+-+0
+= l |
++-+-+
+| | l
++-+-+-+-+
+| = | | l
++-+"+-+-+
+| = | | |
+B-+-+b+-o
+
+% Laser blue 2
+# $BluePath
+
+   +b+-+
+   | = |
+ +-+-+-+-+
+ | l | | |
+0+-+-B-+-o
+ | | | l |
+ +b+-+-+-+
+   | | |
+   +-+b+
+
+% Laser blue 3
+# $BluePath
+
+   +-ob+
+   | l |
+ +-+-+-+-+
+ l | | l |
+ o-+-+-+bo
+ l | | | |
+0+-+-+-+-+
+   | l |
+   +bo-+

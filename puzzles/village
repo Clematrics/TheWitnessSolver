@@ -1,0 +1,356 @@
+$o=Start
+$@=Start,Hexagon
+$0=End:0
+$+=Meet
+$-=PathHorizontal
+$|=PathVertical
+$.=Meet,Hexagon
+
+% Wood cabin panel 1
+$4=Shape:T4Piece:AnyRotation
+
+         0
+.-.-.-.-.
+| | | | |
+.-.-.-.-.
+| | | | |
+.-.-.-.-.
+|4| | | |
+.-.-.-.-.
+| | | | |
+@-.-.-.-.
+
+% Wood cabin panel 2
+$1=Shape:Block
+$4=Shape:T4Piece:AnyRotation
+
+         0
+.-.-.-.-.
+| | | | |
+.-.-.-.-.
+| | | | |
+.-.-.-.-.
+|4|1| | |
+.-.-.-.-.
+| | | | |
+@-.-.-.-.
+
+% Wood cabin panel 3
+$1=Shape:Block
+$4=Shape:T4Piece:AnyRotation
+
+         0
+.-.-.-.-.
+| | | | |
+.-.-.-.-.
+| | | | |
+.-.-.-.-.
+|4|1| | |
+.-.-.-.-.
+| |1| | |
+@-.-.-.-.
+
+% Wood cabin panel 4
+$4=Shape:T4Piece:AnyRotation
+
+         0
+.-.-.-.-.
+| | | | |
+.-.-.-.-.
+| | | | |
+.-.-.-.-.
+|4|4| | |
+.-.-.-.-.
+| | | | |
+@-.-.-.-.
+
+% Wood cabin panel 5
+$3=Shape:Bar3:AnyRotation
+
+         0
+.-.-.-.-.
+| | | | |
+.-.-.-.-.
+|3| | |3|
+.-.-.-.-.
+| | | | |
+.-.-.-.-.
+| | | | |
+@-.-.-.-.
+
+% Wood cabin tower unlock
+$t=Triad
+$1=Shape:Block
+
+         0
+.-.-.-.-.
+| | | |t|
+.-.-.-.-.
+| | | | |
+.-.-.-.-.
+| |1| | |
+.-.-.-.-.
+| | | | |
+@-.-.-.-.
+
+% Orange container
+$b=Square:Black
+$w=Square:White
+$2=Shape:Bar2:Rotation90
+
+        0
++-+-+-+-+
+|w|2|2|w|
++-+-+-+-+
+| | | | |
++-+-+-+-+
+| | | | |
++-+-+-+-+
+|b|2|2|w|
+o-+-+-+-+
+
+% Inside orange container
+$"=PathHorizontal:Cut
+$==PathVertical:Cut
+$2=Triangle:2
+
+       0
++-+-+"+
+| | | |
++-+-+-+
+= | =2=
++-+-+-+
+| | | |
+o-+-+-+
+
+% Bridge controller
+$1=End:1
+$3=Shape:Bar3
+
+0     1
++-+-+-+
+| | | |
++-+-+-+
+| | | |
++-+-+-+
+| | | |
++-+-+-+
+|3| | |
++-+-+-+
+|3| |3|
++-+o+-+
+
+% Red house panel 1
+$AxialSymmetry
+$1=End:1
+$b=Square:Black
+$w=Square:White
+
+0
+ +-+-+-+-+-o
+ | | | | | |
+ +-+-+-+-+-+
+ | |b| |w| |
+ +-+-+-+-+-+
+ | | |w| | |
+ +-+-+-+-+-+
+ | |w| |b| |
+ +-+-+-+-+-+
+ | | | | | |
+ o-+-+-+-+-+
+            1
+
+% Red house panel 2
+$AxialSymmetry
+$1=End:1
+$b=Square:Black
+$w=Square:White
+
+0
+ +-+-+-+-+-o
+ | | | | | |
+ +-+-+-+-+-+
+ | |b| |w| |
+ +-+-+-+-+-+
+ | | |w| | |
+ +-+-+-+-+-+
+ | |b| |w| |
+ +-+-+-+-+-+
+ | | | | | |
+ o-+-+-+-+-+
+            1
+
+% Red house panel 3
+$AxialSymmetry
+$1=End:1
+$b=Square:Black
+$w=Square:White
+
+0
+ +-+-+-+-+-o
+ | | | | | |
+ +-+-+-+-+-+
+ | |b| |w| |
+ +-+-+-+-+-+
+ | | |w| | |
+ +-+-+-+-+-+
+ | |b| |w| |
+ +-+-+-+-+-+
+ | | | | |b|
+ o-+-+-+-+-+
+            1
+
+% Red house panel 4
+$AxialSymmetry
+$1=End:1
+$b=Square:Black
+$w=Square:White
+$!=PathVertical,Hexagon
+
+0
+ +-+-+-+-+-o
+ |b|w| | | |
+ +-+-+-+-+-+
+ |b| |w| |w|
+ +-+-+-+-+-+
+ | | | |b| |
+ +-+-+-+-+-+
+ | |b| | | |
+ +-+-+-+-+-+
+ | | |w| | !
+ o-+-+-+-+-+
+            1
+
+% Red house panel 5
+$AxialSymmetry
+$1=End:1
+$b=Square:Black
+$w=Square:White
+$!=PathVertical,Hexagon
+
+0
+ +-+-+-+-+-o
+ | | |w| | |
+ +-+-+-+-+-+
+ | | | |b| |
+ +-+-+-+-+-+
+ | |b| | | |
+ +-+-+-+-+-+
+ |w| |w| |b|
+ +-+-+-+-+-+
+ | | | |w|b!
+ o-+-+-+-+-+
+            1
+
+% Red house hidden puzzle
+# Hidden at the upper floor between bricks on the south wall
+$"=PathHorizontal:Cut
+$==PathVertical:Cut
+$1=Triangle
+
+      0
++-+-+"+
+| | | |
++-+"+-+
+= |1| |
++-+-+"+
+| | | =
+o"+"+-+
+
+% White house
+$v=Shape:Corner:AnyRotation
+$M=Star:Magenta
+
+           0
++-+-+-+-+-+
+|v|v|v|v|v|
++-+-+-+-+-+
+| | | | | |
++-+-+-+-+-+
+| | |M| | |
++-+-+-+-+-+
+| | | | | |
++-+-+-+-+-+
+|M|M|M|M|M|
+o-+-+-+-+-+
+
+% Church entrance
+$R=Star:Red
+$Y=Star:Yellow
+$B=Star:Black
+
+        0
++-+-+-+-+
+|Y|Y|Y|Y|
++-+-+-+-+
+|Y|Y|B|R|
++-+-+-+-+
+|B|B|B|R|
++-+-+-+-+
+|R|R|R|R|
+o-+-+-+-+
+
+% White house color selector
+$r=Square:Red
+$g=Square:Green
+$b=Square:Blue
+$3=Shape:Bar3:AnyRotation
+
+          0
++-+-+-+-+-+
+| | |g| | |
++-+-+-+-+-+
+| | | | | |
++-+-+-+-+-+
+|b| |3| |r|
+o-+-+-+-+-+
+
+% White house container left puzzle
+$k=Square:Black
+$r=Square:Red
+$g=Square:Green
+$b=Square:Blue
+$w=Square:White
+$y=Square:Yellow
+$m=Square:Magenta
+$c=Square:Cyan
+
+            0
++-+-+-+-+-+-+
+|m|y| | |w|w|
++-+-+-+-+-+-+
+|y|y| | |w|w|
++-+-+-+-+-+-+
+| | | | | | |
++-+-+-+-+-+-+
+| | | | | | |
++-+-+-+-+-+-+
+|k|r| | |g|c|
++-+-+-+-+-+-+
+|k|k| | |g|g|
+o-+-+-+-+-+-+
+
+% White house container right puzzle
+$k=Star:Black
+$r=Star:Red
+$g=Star:Green
+$b=Star:Blue
+$w=Star:White
+$y=Star:Yellow
+$m=Star:Magenta
+$c=Star:Cyan
+
+            0
++-+-+-+-+-+-+
+|m|m| | |r|k|
++-+-+-+-+-+-+
+|w|m| | |r|r|
++-+-+-+-+-+-+
+| | | | | | |
++-+-+-+-+-+-+
+| | | | | | |
++-+-+-+-+-+-+
+|k|k| | |w|m|
++-+-+-+-+-+-+
+|r|k| | |w|w|
+o-+-+-+-+-+-+

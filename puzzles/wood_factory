@@ -1,0 +1,335 @@
+$o=Start
+$0=End:0
+$+=Meet
+$-=PathHorizontal
+$|=PathVertical
+$t=Triad
+
+% Underground elevator unlock 1
+$B=Star:Black
+$W=Star:White
+
+0
+ +-+-+-+-+-+
+ |W|W|W|B|B|
+ +-+-+-+-+-+
+ |W| | | |B|
+ +-+-+-+-+-+
+ |W| | | |W|
+ +-+-+-+-+-+
+ |B| | | |W|
+ +-+-+-+-+-+
+ |B|B|W|W|W|
+ +-+-+-+-+-o
+
+% Underground elevator unlock 2
+$"=PathHorizontal:Cut
+$==PathVertical:Cut
+$T=Shape:T5Piece:AnyRotation
+$3=Shape:Bar3
+
+         0
++-+"+-+-+
+| | | | |
++-+-+-+-+
+| | | | =
++-+-+-+-+
+| | |T| |
++-+-+-+-+
+| | |3| |
+o"+-+-+-+
+
+% Ramp elevation controller
+$3=Shape:Bar3:AnyRotation
+
++-+-+-+0
+| | | |
++-+-+-+
+| | | |
++-+-+-+
+| | |3|
+o-+-+-+
+
+% Panel 1.1
+$2=Shape:Bar2
+$3=Shape:Bar3:Rotation90
+$4=Shape:Bar4
+
+      0
++-+-+-+
+|2| | |
++-+-+-+
+|3|t|4|
++-+-+-+
+| | |3|
+o-+-+-+
+
+% Panel 1.2
+$1=Shape:Block
+
+        0
++-+-+-+-+
+| | | | |
++-+-+-+-+
+|1|1|1| |
++-+-+-+-+
+| | | | |
++-+-+-+-+
+|t| | | |
+o-+-+-+-+
+
+% Panel 1.3
+$_=Shape:Bar4:Rotation90
+$!=Shape:Bar4
+
+        0
++-+-+-+-+
+| | | | |
++-+-+-+-+
+| | |t| |
++-+-+-+-+
+|_| | |!|
++-+-+-+-+
+| | | | |
+o-+-+-+-+
+
+
+% Panel 1.4
+$1=Shape:Block
+$2=Shape:Bar2:Rotation90
+$L=Shape:LPiece:Rotation270
+
+      0
++-+-+-+
+| |2|1|
++-+-+-+
+|t|L| |
++-+-+-+
+| |2| |
+o-+-+-+
+
+% Panel 1.5
+$/=Shape:Diagonal2
+$\=Shape:Diagonal2:Rotation90
+
+        0
++-+-+-+-+
+|t| | |/|
++-+-+-+-+
+| |/| | |
++-+-+-+-+
+| | |\| |
++-+-+-+-+
+| | | | |
+o-+-+-+-+
+
+% Ramp position controller
+$2=Shape:Bar2
+
+ +-+-+-+-+-+-o
+ | | | | | |t|
+ +-+-+-+-+-+-+
+ | | | | | | |
+ +-+-+-+-+-+-+
+ |2|2|2|2|2|2|
+ +-+-+-+-+-+-+
+0
+
+% Panel 2.1
+# Crucial puzzle to understand the triad
+$G=Star:Green
+$t=Triad:Magenta
+
+       0
+ ++-+-+
++G| |G|
++-+-+-+
+| | | |
++-+-+-+
+|t| |G|
+o-+-++
+
+% Panel 2.2
+# Crucial puzzle to understand the triad
+$"=PathHorizontal:Cut
+$==PathVertical:Cut
+$M=Star:Magenta
+$t=Triad:Magenta
+
+       0
+ ++-+-+
++M| |M|
++-+-+-+
+= | | |
++-+-+-+
+|t| |M|
+o-+"++
+
+% Panel 2.3
+$t=Triad:Magenta
+$G=Star:Green
+$O=Star:Orange
+
+         0
++-+-+-+-+
+|O|O|O|O|
++-+-+-+-+
+|t| | |O|
++-+-+-+-+
+|G| | | |
++-+-+-+-+
+|G|G|G| |
+o-+-+-+-+
+
+
+% Panel 2.4
+# Crucial puzzle to understand the triad
+$t=Triad:Magenta
+$M=Star:Magenta
+$O=Star:Orange
+
+         0
++-+-+-+-+
+| |M|O| |
++-+-+-+-+
+|O| | |M|
++-+-+-+-+
+|M| |O| |
++-+-+-+-+
+|t|O|M|O|
+o-+-+-+-+
+
+% Panel 2.5
+# Crucial puzzle to understand the triad
+$m=Triad:Magenta
+$M=Star:Magenta
+$g=Triad:Green
+$G=Star:Green
+
+         0
++-+-+-+-+
+|m| | | |
++-+-+-+-+
+| |M| | |
++-+-+-+-+
+| | |G| |
++-+-+-+-+
+| | | |g|
+o-+-+-+-+
+
+% Panel 2.6
+$t=Triad:Orange
+$O=Star:Orange
+
+         0
++-+-+-+-+
+|O|O|O|O|
++-+-+-+-+
+|O| | |O|
++-+-+-+-+
+|O| | |O|
++-+-+-+-+
+|t| | |O|
+o-+-+-+-+
+
+% Panel 2.7
+$t=Triad:Orange
+$O=Star:Orange
+
+         0
++-+-+-+-+
+|O|O|O|O|
++-+-+-+-+
+|O| | |O|
++-+-+-+-+
+|O| | |O|
++-+-+-+-+
+|O| | |t|
+o-+-+-+-+
+
+
+% Panel 2.8
+$M=Star:Magenta
+$3=Shape:Bar3
+$4=Shape:Bar4:Rotation90
+
+           0
++-+-+-+-+-+
+|M|M|M|M|M|
++-+-+-+-+-+
+| | | | | |
++-+-+-+-+-+
+| | | | | |
++-+-+-+-+-+
+  |t| |3|4|
+  o-+-+-+-+
+
+% Panel 2.9
+$M=Star:Magenta
+$3=Shape:Bar3
+$4=Shape:Bar4:Rotation90
+
+         0
++-+-+-+-+
+|M|M|M|M|
++-+-+-+-+
+| | | | |
++-+-+-+-+
+| | | | |
++-+-+-+-+
+|t| |3|4|
+o-+-+-+-+
+
+% Panel 3.1
+$M=Star:Magenta
+$!=Shape:Bar3
+$_=Shape:Bar3:Rotation90
+
++-+-+-+-+-+-+-+
+| | | |!| | |M|
++-+-+-+-+-+-+-+
+| | | |_| | | |
++-+-+-+-+-+-+-+
+|t| | |_| | | |
+o-+-+-+-+-+-+-+
+              0
+
+% Panel 3.2
+$M=Star:Magenta
+$!=Shape:Bar3
+$_=Shape:Bar3:Rotation90
+
++-+-+-+-+-+-+-+
+|M| | |!| | |M|
++-+-+-+-+-+-+-+
+| | | |_| | | |
++-+-+-+-+-+-+-+
+|t| | |_| | |M|
+o-+-+-+-+-+-+-+
+              0
+
+% Panel 3.3
+$M=Star:Magenta
+$!=Shape:Bar3
+$_=Shape:Bar3:Rotation90
+
++-+-+-+-+-+-+-+
+|M| | |!| | |M|
++-+-+-+-+-+-+-+
+| | | |_| | | |
++-+-+-+-+-+-+-+
+|t|M| |_| | |M|
+o-+-+-+-+-+-+-+
+              0
+
+% Crane controller
+$1=Shape:Block
+
+0
+ +-+-+-+-+-+-o
+ | | | | | |t|
+ +-+-+-+-+-+-+
+ |1|1|1|1|1|1|
+ +-+-+-+-+-+-+
+ | | | | | | |
+ +-+-+-+-+-+-+

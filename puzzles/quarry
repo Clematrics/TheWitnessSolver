@@ -1,0 +1,305 @@
+$o=Start
+$0=End:0
+$1=End:1
+$+=Meet
+$-=PathHorizontal
+$|=PathVertical
+$b=Square:Black
+$w=Square:White
+$r=Square:Red
+$g=Square:Green
+$.=Meet,Hexagon
+$_=PathHorizontal,Hexagon
+$!=PathVertical,Hexagon
+$t=Triad
+
+% Dam passage 1
+
+         0
++-+-+-+-+
+|w|b|b|w|
++-+-+-+-+
+|b|b|b|b|
++-+-+-+-+
+|b|b|b|b|
++-+-+-+-+
+|w|b|b|w|
+o-+-+-+-+
+
+% Dam passage 2
+$L=Shape:LPiece
+$P=Shape:JPiece:Rotation180
+
+         0
++-+-+-+-+
+| | | | |
++-+-+-+-+
+| | | | |
++-+-+-+-+
+| | | | |
++-+-+-+-+
+|L| | |P|
+o-+-+-+-+
+
+% Concrete factory garage door 1
+
+    0
+o-+-+-+-+
+|w|b|b|w|
++-+-+-+-+
+|b|b|b|b|
++-+-+-+-+
+|b|b|b|b|
++-+-+-+-+
+|w|b|b| |
++-+-+-+-o
+    1
+
+% Concrete factory garage door 2
+
++-+_+-+0
+| | | |
++-+-+-+
+! | | !
++-+-+-+-+-.
+| | | | | |
+.-.-.-+-+-+
+    | | | !
+    .-+-+-+
+    | | | |
+    o-+-.-+
+
+% Concrete factory ramp
+
+0+-.
+ |t|
+ .-.o
+
+% Concrete factory bottom floor panel 1
+
+    0
+.-+-+
+| | |
++-+-+
+| |t|
+o-+-+
+
+% Concrete factory bottom floor panel 2
+
+      0
++-+_+-+
+| | | |
++-+-+-+
+! | | !
++-+-+-+
+|t| | |
+o-+_+-+
+
+% Concrete factory bottom floor panel 3
+
+      0
++_+-+-+
+| | ! |
++-.-+_+
+! |t| |
++-+_+-.
+| | | |
+o-+-+_+
+
+% Concrete factory bottom floor panel 4
+
+      0
+.-.-.-.
+| | | |
+.-.-.-.
+| |t| |
+.-.-.-.
+| | | |
+o-.-.-.
+
+% Concrete factory bottom floor panel 5
+
+      0
++_+_+-+
+| | | |
++-+-+-+
+! ! ! |
++-+-+-+
+| | | |
+o_+_+-+
+
+% Concrete factory bottom floor panel 6
+
+      0
++_+_+-+
+| | |t|
++-+-+-+
+! ! ! |
++-+-+-+
+| | | |
+o_+_+-+
+
+% Concrete factory elevator
+
++_+0
+| |
+o-+
+| |
++_+
+
+% Concrete factory top floor panel 1
+
+     0
++-+-+
+|g|g|
++-+-+
+|r|t|
+o-+-+
+
+% Concrete factory top floor panel 2
+
+       0
++-+-+-+
+| |g|r|
++-+-+-+
+| |r|g|
++-+-+-+
+|t| | |
+o-+-+-+
+
+% Concrete factory top floor panel 3
+
+       0
++-+-+-+
+|r|r|r|
++-+-+-+
+|r|g|r|
++-+-+-+
+|t|r|r|
+o-+-+-+
+
+% Concrete factory top floor panel 4
+
+       0
++-+-+-+
+|r|r|r|
++-+-+-+
+|r|g|g|
++-+-+-+
+|t|r|r|
+o-+-+-+
+
+% Concrete factory top floor panel 5
+
+         0
++-+-+-+-+
+|r|g|r| |
++-+-+-+-+
+|r|t|r|g|
++-+-+-+-+
+| |g|r| |
++-+-+-+-+
+|r|r|g|r|
+o-+-+-+-+
+
+% Concrete factory top floor panel 6
+$c=Square:Cyan
+$B=Square:Blue
+
+         0
++-+-+-+-+
+|c|r|r|g|
++-+-+-+-+
+|r|r|r|r|
++-+-+-+-+
+|r|r|r|r|
++-+-+-+-+
+|t|r|r|B|
+o-+-+-+-+
+
+% Concrete factory top floor panel 7
+$c=Square:Cyan
+
+       0
++-+-+-+
+|c|c|c|
++-+-+-+
+|g|t|r|
++-+-+-+
+|g|g|r|
+o-+-+-+
+
+% Concrete factory top floor 8
+
+         0
++-+-+-+-+
+|g|g|g|g|
++-+-+-+-+
+| |r|r|g|
++-+-o-+-+
+| !r|r!g|
++-+_+_+-+
+|t| | |g|
++-+-+-+-+
+
+% Concrete factory top floor 9
+$2=End:2
+
+0+-+-+-+-+-+-+_+1
+ |b|w| | | |b|w!
+ +-+-+-+-+-+-+-+
+ |w| | |b|b| | |
+ +-+-+-+-o-+-+-+
+ | | | |w|w| | |
+ +-+-+-+-+-+-+-+
+ | | | | | |t| !
+ +-+-+-+-+-+-+_+
+ | | |b| | | | |
+ +-+_o-+-+-+-+-+
+ | | |w| | | |b|
+ +-+-+-+-+-+-+-+
+ ! | | | | |w|b|
+ o_+-+-+-+-+_+-+2
+
+% Concrete factory top floor stairs
+$y=Square:Yellow
+$m=Square:Magenta
+
++-+-+-+-o
+| | |m|y|
++-+-+-+-+
+| |m|y| |
++-+-+-+-+
+|m|y|m| |
++-+-+-+-+
+|y| | |t|
++-+-+-+-+0
+
+% Outside elevator
+
+ 0
+.+.
+| |
++-+
+| |
++-+
+ot|
++-+
+| |
++-+
+| |
+.+.
+ 1
+
+% Laser unlock
+$*=Shape:Block
+$:=Shape:Bar2
+
++-+-+-+
+| |*| |
++-+-+-+
+| |:| |
++-+-+-+
+| |t| |
++-o-+-+
+    0
