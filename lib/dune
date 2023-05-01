@@ -1,5 +1,6 @@
 (library
  (name TheWitnessSolver)
+ (preprocess (pps log_ppx))
  (modules_without_implementation definition)
  (libraries trax vg vg.svg))
 
