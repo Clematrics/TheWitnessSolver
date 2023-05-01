@@ -9,6 +9,7 @@ type element = {
 }
 
 type t = {
+  name: string;
   properties : PropertySet.t;
   width : int;
   height : int;

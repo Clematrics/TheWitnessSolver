@@ -10,6 +10,7 @@ type element = {
 }
 
 type t = {
+  name : string;
   properties : PropertySet.t;
   width : int;
   height : int;
@@ -145,44 +146,48 @@ let from_raw_unchecked global_properties global_assignments raw =
                          anything"
                         (string_of_path path) x y);
                  (* special handling of End paths *)
-                 (match path with
-                 | End i -> (
-                     let adjacent =
-                       OffsetSet.filter
-                         (Fun.flip OffsetSet.mem OffsetSet.adjacent)
-                         connected_paths
-                     in
-                     match OffsetSet.cardinal adjacent with
-                     | 0 -> (
-                         (* Look for a corner *)
-                         let corners =
-                           OffsetSet.filter
-                             (Fun.flip OffsetSet.mem OffsetSet.corners)
-                             connected_paths
-                         in
-                         match OffsetSet.cardinal corners with
-                         | 0 ->
-                             (* redondant with the connection check above *)
-                             error
-                               (Printf.sprintf
-                                  "The End %i is not connected to any other \
-                                   path"
-                                  i)
-                         | 1 -> (* ok *) ()
-                         | _ ->
-                             error
-                               (Printf.sprintf
-                                  "Ambiguous connections for the End %i. End \
-                                   can only be connected to one other path"
-                                  i))
-                     | 1 -> (* ok *) ()
-                     | _ ->
-                         error
-                           (Printf.sprintf
-                              "Ambiguous connections for the End %i. End can \
-                               only be connected to one other path"
-                              i))
-                 | _ -> ());
+                 let connected_paths =
+                   match path with
+                   | End i -> (
+                       let adjacent =
+                         OffsetSet.filter
+                           (Fun.flip OffsetSet.mem OffsetSet.adjacent)
+                           connected_paths
+                       in
+                       match OffsetSet.cardinal adjacent with
+                       | 0 ->
+                           (* Look for a corner *)
+                           let corners =
+                             OffsetSet.filter
+                               (Fun.flip OffsetSet.mem OffsetSet.corners)
+                               connected_paths
+                           in
+                           (match OffsetSet.cardinal corners with
+                           | 1 -> (* ok *) ()
+                           | 0 ->
+                               (* redondant with the connection check above *)
+                               error
+                                 (Printf.sprintf
+                                    "The End %i is not connected to any other \
+                                     path"
+                                    i)
+                           | _ ->
+                               error
+                                 (Printf.sprintf
+                                    "Ambiguous connections for the End %i. End \
+                                     can only be connected to one other path"
+                                    i));
+                           corners
+                       | 1 -> (* ok *) adjacent
+                       | _ ->
+                           error
+                             (Printf.sprintf
+                                "Ambiguous connections for the End %i. End can \
+                                 only be connected to one other path"
+                                i);
+                           adjacent)
+                   | _ -> connected_paths
+                 in
                  board :=
                    Board.add (x, y)
                      {
@@ -313,7 +318,13 @@ let from_raw_unchecked global_properties global_assignments raw =
         done
       done;
       let board = !board in
-      { properties; width; height; board (* layout; symbols *) })
+      {
+        name = raw.name;
+        properties;
+        width;
+        height;
+        board (* layout; symbols *);
+      })
     ()
 
 let validate x = return x
