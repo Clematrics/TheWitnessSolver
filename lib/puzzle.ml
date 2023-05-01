@@ -137,15 +137,15 @@ let matrix_view (width, height) assignments lines =
   let fold_xy arr f init =
     let _, v =
       Array.fold_left
-        (fun (y, v) line ->
+        (fun (x, v) line ->
           let _, v' =
             Array.fold_left
-              (fun (x, v) elt ->
+              (fun (y, v) elt ->
                 let v' = f (x, y) elt v in
-                (x + 1, v'))
+                (y + 1, v'))
               (0, v) line
           in
-          (y + 1, v'))
+          (x + 1, v'))
         (0, init) arr
     in
     v
@@ -361,4 +361,12 @@ let from_chn chn =
     raw_global_rules |> List.map Rule.from_raw
     |> merge_rules (PropertySet.empty, init_assignments)
   in
-  raw_puzzles |> List.map (from_raw global_rules) |> merge
+  raw_puzzles
+  |> List.map (fun raw -> (from_raw global_rules raw, raw))
+  |> List.map (fun (log, raw) ->
+         let ctxt = Printf.sprintf "In puzzle %s:" RawPuzzleType.(raw.name) in
+         match log with
+         | Ok (res, (_ :: _ as h)) -> Ok (res, ctxt :: h)
+         | Error (_ :: _ as h) -> Error (ctxt :: h)
+         | _ -> log)
+  |> merge
