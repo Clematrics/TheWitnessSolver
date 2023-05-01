@@ -36,8 +36,6 @@ open Log
 let merge_rules (init : PropertySet.t * assignments) rules :
     PropertySet.t * assignments =
   (* TODO: Log when overiding a rule ? *)
-  (* log
-     (fun () -> *)
   let properties, assignments =
     List.fold_left
       (fun (set, ass) -> function
@@ -47,8 +45,6 @@ let merge_rules (init : PropertySet.t * assignments) rules :
       init rules
   in
   (properties, assignments)
-(* )
-   () *)
 
 let path_connection = function
   | Meet -> OffsetSet.adjacent
@@ -138,17 +134,29 @@ let matrix_view (width, height) assignments lines =
   let get arr (x, y) =
     if x >= 0 && x < width && y >= 0 && y < height then arr.(x).(y) else None
   in
-  (get layout, get symbols)
+  let fold_xy arr f init =
+    let _, v =
+      Array.fold_left
+        (fun (y, v) line ->
+          let _, v' =
+            Array.fold_left
+              (fun (x, v) elt ->
+                let v' = f (x, y) elt v in
+                (x + 1, v'))
+              (0, v) line
+          in
+          (y + 1, v'))
+        (0, init) arr
+    in
+    v
+  in
+  (get layout, fold_xy layout, get symbols, fold_xy symbols)
 
-let board_from_raw assignments raw =
-  let ((width, height) as dim) = RawPuzzle.get_dimension raw in
-  let get_layout, get_symbol = matrix_view dim assignments raw.lines in
-  let board = ref Board.empty in
+let inject_paths get_layout fold_layout =
   let open Coords in
-  for y = 0 to height - 1 do
-    for x = 0 to width - 1 do
-      get_layout (x, y)
-      |> Option.iter (fun path ->
+  fold_layout (fun (x, y) nav_opt board ->
+      nav_opt
+      |> Option.fold ~none:board ~some:(fun path ->
              let offsets = path_connection path in
              let opt = optional_connection path in
              let connected_paths =
@@ -198,18 +206,23 @@ let board_from_raw assignments raw =
                        adjacent)
                | _ -> connected_paths
              in
-             board :=
-               Board.add (x, y)
-                 {
-                   path = Some path;
-                   symbol = None;
-                   connected_paths;
-                   connected_cells = OffsetSet.empty;
-                 }
-                 !board;
-             ())
-    done
-  done;
+             Board.add (x, y)
+               {
+                 path = Some path;
+                 symbol = None;
+                 connected_paths;
+                 connected_cells = OffsetSet.empty;
+               }
+               board))
+(* for y = 0 to height - 1 do
+     for x = 0 to width - 1 do
+       get_layout (x, y)
+       |>
+     done
+   done;
+   !board *)
+
+let make_cells board =
   (* finding cells : find all corners (meet | start) and look for the following pattern
       C H C
       V / V
@@ -241,10 +254,11 @@ let board_from_raw assignments raw =
     Board.filter
       (fun _ { path; _ } ->
         match path with Some Meet | Some (Start _) -> true | _ -> false)
-      !board
+      board
   in
+  let open Coords in
   let cells =
-    let get coords = Board.find_opt coords !board in
+    let get coords = Board.find_opt coords board in
     Board.filter_map
       (fun coords _ ->
         let ( let* ) = Option.bind in
@@ -298,29 +312,37 @@ let board_from_raw assignments raw =
                 | None -> assert false)
               b)
           v.connected_paths b)
-      cells !board
+      cells board
   in
   (* Adding cells *)
   let board =
     Board.fold (fun k v b -> Board.add (k +: (1, 1)) v b) cells board
   in
+  board
+
+let add_symbols fold_symbol =
   (* Adding symbols *)
-  let board = ref board in
-  for y = 0 to height - 1 do
-    for x = 0 to width - 1 do
-      get_symbol (x, y)
-      |> Option.iter (fun (s, c) ->
-             board :=
-               Board.update (x, y)
-                 (function
-                   | Some elt -> Some { elt with symbol = Some (s, c) }
-                   | None ->
-                       error (Error.bad_symbol_position (x, y) s);
-                       None)
-                 !board)
-    done
-  done;
-  let board = !board in
+  fold_symbol (fun (x, y) sym_opt board ->
+      sym_opt
+      |> Option.fold ~none:board ~some:(fun (s, c) ->
+             Board.update (x, y)
+               (function
+                 | Some elt -> Some { elt with symbol = Some (s, c) }
+                 | None ->
+                     error (Error.bad_symbol_position (x, y) s);
+                     None)
+               board))
+
+let board_from_raw assignments raw =
+  let ((width, height) as dim) = RawPuzzle.get_dimension raw in
+  let get_layout, fold_layout, _, fold_symbol =
+    matrix_view dim assignments raw.lines
+  in
+  let board =
+    Board.empty
+    |> inject_paths get_layout fold_layout
+    |> make_cells |> add_symbols fold_symbol
+  in
   (width, height, board)
 
 let validate x = return x
