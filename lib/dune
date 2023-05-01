@@ -1,7 +1,7 @@
 (library
  (name TheWitnessSolver)
  (modules_without_implementation definition)
- (libraries vg))
+ (libraries trax vg vg.svg))
 
 (ocamllex rawLexer ruleLexer)
 

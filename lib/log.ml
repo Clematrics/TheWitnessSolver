@@ -55,7 +55,7 @@ let rec logging_loop : type a. log -> (a, 'b) continuation -> a -> 'b log_result
         (fun v ->
           let h = List.rev log.history in
           if log.has_errors then Result.Error h else Result.Ok (v, h));
-      exnc = raise;
+      exnc = Trax.reraise_with_stack_trace;
       effc =
         (fun (type a) (eff : a t) ->
           match eff with
