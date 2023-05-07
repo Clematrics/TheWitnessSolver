@@ -1,5 +1,8 @@
 %{
-    open Definition
+    open Path
+    open Defs.Color
+    open Defs.Rotation
+    open Defs.Symbol
     open RuleType
 %}
 
@@ -8,12 +11,12 @@
 %token Comma
 %token Colon
 %token <int> Int
-%token <Property.t> Property
-%token <Definition.nav> Navigation
-%token <Definition.symbol> Symbol
-%token <Definition.shape> Shape
-%token <Definition.rotation> Rotation
-%token <Definition.color> Color
+%token <Defs.Property.t> Property
+%token <Path.t> Path
+%token <Defs.Symbol.t> Symbol
+%token <Defs.Shape.t> Shape
+%token <Defs.Rotation.t> Rotation
+%token <Defs.Color.t> Color
 %token <bool> Tag
 %token <char> Character
 %start <Rule.t> parse
@@ -42,16 +45,17 @@ let symbols ==
 | s=symbol; Comma; n=navigation; { Some n, Some s }
 
 let navigation :=
-| ~=Navigation; <>
-| n=Navigation; Colon; b=Tag;
+| ~=Path; <>
+| n=Path; Colon; b=Tag;
     {
         match n with
         | Start _ -> Start b
+        | Meet _ -> Meet b
         | PathVertical _ -> PathVertical b
         | PathHorizontal _ -> PathHorizontal b
         | _ -> raise (Failure "Cannot use a tag qualifier on navigation symbols other than Start or Paths")
     }
-| n=Navigation; Colon; i=Int;
+| n=Path; Colon; i=Int;
     {
         match n with
         | End _ -> End i

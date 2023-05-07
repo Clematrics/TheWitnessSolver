@@ -1,0 +1,3 @@
+(library
+ (name render)
+ (libraries defs puzzle log vg vg.svg))

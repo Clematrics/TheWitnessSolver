@@ -1,10 +1,3 @@
 (library
- (name TheWitnessSolver)
- (preprocess (pps log_ppx))
- (modules_without_implementation definition)
- (libraries trax vg vg.svg))
-
-(ocamllex rawLexer ruleLexer)
-
-(menhir
- (modules rawParser ruleParser))
+ (name TheWitness)
+ (libraries puzzle raw render))

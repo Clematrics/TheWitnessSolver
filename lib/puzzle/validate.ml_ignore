@@ -1,0 +1,89 @@
+open Puzzle
+
+(* TODO: effects with errors and warnings *)
+
+let validate { properties; width; height; layout; symbols } =
+  let has p = PropertySet.mem p properties in
+  let exists f = Array.exists (Array.exists f) layout in
+  let ( => ) x y = if x then y else true in
+  let check_symmetry end_i end_j symmetric =
+    for j = 0 to end_j do
+      for i = 0 to end_i do
+        match (layout.(i).(j), symmetric i j) with
+        | Start, Start | End _, End _ -> ()
+        | Start, _ | _, Start ->
+            raise (Failure "Unsymmetric start at i j and i' j'")
+        | End _, _ | _, End _ ->
+            raise (Failure "Unsymmetric ends at i j and i' j'")
+        | _, _ -> ()
+      done
+    done;
+    true
+  in
+  let check_vertical_symmetry is_cylindrical =
+    let symmetric =
+      if is_cylindrical then fun i j -> layout.(i + ((width - 1) / 2)).(j)
+      else fun i j -> layout.(width - 1 - i).(j)
+    in
+    check_symmetry (((width - 1) / 2) - 1) (height - 1) symmetric
+  in
+  let check_horizontal_symmetry _is_cylindrical =
+    let symmetric i j = layout.(i).(height - 1 - j) in
+    check_symmetry (width - 1) (((height - 1) / 2) - 1) symmetric
+  in
+  let check_axial_symmetry is_cylindrical =
+    let symmetric =
+      if is_cylindrical then fun i j ->
+        layout.(i + ((width - 1) / 2)).(height - 1 - j)
+      else fun i j -> layout.(width - 1 - i).(height - 1 - j)
+    in
+    check_symmetry (width - 1) (((height - 1) / 2) - 1) symmetric
+  in
+  (* check rules
+     Exists Start
+     Exists End
+     End:0 X ... X End:n
+     VerticalSymmetry => Forall Start on left side, Start' symmetric && Forall End on left side, End' symmetric
+     HorizontalSymmetry => Forall Start on up side, Start' symmetric && Forall End on up side, End' symmetric
+     AxialSymmetry => Forall Start on one side, Start' symmetric && Forall End on one side, End' symmetric
+     AxialSymmetry X (VerticalSymmetry || HorizontalSymmetry)
+     BlueYellowPath => VerticalSymmetry || HorizontalSymmetry || AxialSymmetry
+     Cylindrical => First column = Last column
+  *)
+  let distinct_ends =
+    let module IntSet = Set.Make (Int) in
+    let _ =
+      Array.fold_left
+        (Array.fold_left (fun set nav ->
+             match nav with
+             | End n ->
+                 if IntSet.mem n set then raise (Failure "pas bon")
+                 else IntSet.add n set
+             | _ -> set))
+        IntSet.empty layout
+    in
+    true (*TODO:*)
+  in
+  let first_equal_last arr = arr.(0) = arr.(width - 1) in
+
+  (* layout & symbols check ?? *)
+  List.for_all Lazy.force
+    [
+      lazy (exists (( = ) Start));
+      lazy (exists (function End _ -> true | _ -> false));
+      lazy distinct_ends;
+      lazy (has VerticalSymmetry => check_vertical_symmetry (has Cylindrical));
+      lazy
+        (has HorizontalSymmetry => check_horizontal_symmetry (has Cylindrical));
+      lazy (has AxialSymmetry => check_axial_symmetry (has Cylindrical));
+      lazy
+        (has AxialSymmetry != (has VerticalSymmetry || has HorizontalSymmetry));
+      lazy
+        (has BlueYellowPath
+        => List.exists has
+             [ VerticalSymmetry; HorizontalSymmetry; AxialSymmetry ]);
+      lazy
+        (has Cylindrical
+        => (Array.for_all first_equal_last layout
+           && Array.for_all first_equal_last symbols));
+    ]

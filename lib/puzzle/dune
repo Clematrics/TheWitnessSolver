@@ -1,0 +1,4 @@
+(library
+ (name puzzle)
+ (preprocess (pps log_ppx))
+ (libraries log defs msg raw))

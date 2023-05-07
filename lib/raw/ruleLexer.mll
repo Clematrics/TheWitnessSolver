@@ -17,12 +17,12 @@
         "AxialSymmetry", Property AxialSymmetry;
         "BlueYellowPath", Property BlueYellowPath;
         "Cylindrical", Property Cylindrical;
-        (* Navigation *)
-        "Meet", Navigation Meet;
-        "Start", Navigation (Start true);
-        "End", Navigation (End 0);
-        "PathHorizontal", Navigation (PathHorizontal true);
-        "PathVertical", Navigation (PathVertical true);
+        (* Path *)
+        "Meet", Path (Meet true);
+        "Start", Path (Start true);
+        "End", Path (End 0);
+        "PathHorizontal", Path (PathHorizontal true);
+        "PathVertical", Path (PathVertical true);
         (* Symbol *)
         "Hexagon", Symbol Hexagon;
         "Square", Symbol Square;

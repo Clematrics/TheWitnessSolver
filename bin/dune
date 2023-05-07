@@ -1,4 +1,4 @@
 (executable
- (public_name TheWitnessSolver)
+ (public_name TheWitness)
  (name main)
- (libraries TheWitnessSolver))
+ (libraries TheWitness trax))

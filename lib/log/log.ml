@@ -7,8 +7,6 @@
      -can be implemented by a simple exception depending on where the catch is
 *)
 
-(* Effect style with Shallow handler *)
-
 open Effect
 open Effect.Shallow
 

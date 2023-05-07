@@ -1,5 +1,5 @@
 {
-    open RawParser
+    open Parser
 }
 
 let commentChar = '#'
