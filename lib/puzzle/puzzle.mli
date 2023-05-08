@@ -29,6 +29,7 @@ type t = {
   width : int;
   height : int;
   board : element Board.t;
+  edges : Edges.t;
 }
 
 val from_chn : in_channel -> t list Log.log_result

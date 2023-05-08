@@ -64,3 +64,6 @@ val error : string -> unit
 val fatal : string -> unit
 (** Log a fatal error. Stops immediately the computation and generates an
     [Error _]. This is equivalent to an exception. *)
+
+val propagate : history -> unit
+(** Propagates an history to an upper effect handler *)

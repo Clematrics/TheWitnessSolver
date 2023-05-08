@@ -92,3 +92,16 @@ let log comp = logging_loop { history = []; has_errors = false } (fiber comp)
 let warn s = perform (WarningEff s)
 let error s = perform (ErrorEff s)
 let fatal s = perform (FatalEff s)
+
+let rec propagate = function
+  | [] -> ()
+  | Context _ :: l -> propagate l (* TODO: *)
+  | Warning s :: l ->
+      warn s;
+      propagate l
+  | Error s :: l ->
+      error s;
+      propagate l
+  | Fatal s :: l ->
+      fatal s;
+      propagate l

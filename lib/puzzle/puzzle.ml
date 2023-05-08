@@ -17,6 +17,7 @@ type t = {
   width : int;
   height : int;
   board : element Board.t;
+  edges : Edges.t;
 }
 
 let make_get width height arr (x, y) =
@@ -26,7 +27,7 @@ let make_fold width height arr f init =
   let r = ref init in
   for x = 0 to width - 1 do
     for y = 0 to height - 1 do
-      r := f (x, y) arr.(x).(y) !r
+      r := f (x, y) !r arr.(x).(y)
     done
   done;
   !r
@@ -37,29 +38,39 @@ let convert_path = function
   | Raw.Path.Start b -> Start b
   | Raw.Path.End i -> End i
 
-let make_paths width height paths =
+let make_paths paths puzzle =
   let open Coords in
-  let get = make_get width height paths in
-  let fold = make_fold width height paths in
-  fold (fun pos path_opt board ->
-      path_opt |> function
-      | None -> board
-      | Some raw_path ->
-          let around = Array.make_matrix 3 3 (Some raw_path) in
-          List.iter
-            (fun c -> around.(fst c + 1).(snd c + 1) <- get (c +: pos))
-            Coords.all;
-          let connected_paths = Raw.Path.get_connections pos around in
-          if connected_paths = [] then
-            error (Msg.no_connection pos (Raw.Path.to_string raw_path));
-          Board.add pos
-            {
-              path = Some (convert_path raw_path);
-              symbol = None;
-              connected_paths;
-              connected_cells = [];
-            }
-            board)
+  let get = make_get puzzle.width puzzle.height paths in
+  let fold = make_fold puzzle.width puzzle.height paths in
+  let board, edges =
+    fold
+      (fun pos (board, edges) -> function
+        | None -> (board, edges)
+        | Some raw_path ->
+            let around = Array.make_matrix 3 3 (Some raw_path) in
+            List.iter
+              (fun c -> around.(fst c + 1).(snd c + 1) <- get (c +: pos))
+              Coords.all;
+            let connected_paths = Raw.Path.get_connections pos around in
+            if connected_paths = [] then
+              error (Msg.no_connection pos (Raw.Path.to_string raw_path));
+            let new_edges =
+              List.map
+                (fun offset -> Edge.edge pos (pos +: offset))
+                connected_paths
+            in
+            ( Board.add pos
+                {
+                  path = Some (convert_path raw_path);
+                  symbol = None;
+                  connected_paths;
+                  connected_cells = [];
+                }
+                board,
+              Edges.add_seq (List.to_seq new_edges) edges ))
+      (puzzle.board, puzzle.edges)
+  in
+  { puzzle with board; edges }
 
 (* finding cells : take all corners (path | start) and look for the following pattern
     P P P
@@ -70,7 +81,7 @@ let make_paths width height paths =
      / (corner) stands for None
    It is only necessary to check for a cell on the bottom right)
 *)
-let make_cells board =
+let make_cells puzzle =
   let is_P = function
     | None -> false
     | Some { path; _ } ->
@@ -85,12 +96,12 @@ let make_cells board =
     Board.filter
       (fun _ { path; _ } ->
         match path with Some (Start _ | Path _) -> true | _ -> false)
-      board
+      puzzle.board
   in
   let open Coords in
   (* separate board where there are only cells *)
   let cells =
-    let get coords = Board.find_opt coords board in
+    let get coords = Board.find_opt coords puzzle.board in
     Board.fold
       (fun coords _ board ->
         let cell_pos = coords +: (1, 1) in
@@ -123,30 +134,37 @@ let make_cells board =
     let coords = pos +: offset in
     Board.update coords update_path path_board
   in
-  board
-  |> (* for each cell, go to each adjacent path and update it *)
-  Board.fold
-    (fun pos cell path_board ->
-      List.fold_left (add_cell_connection pos) path_board cell.connected_paths)
-    cells
-  |> (* Merging cells and paths *)
-  Board.fold Board.add cells
+  let board =
+    puzzle.board
+    |> (* for each cell, go to each adjacent path and update it *)
+    Board.fold
+      (fun pos cell path_board ->
+        List.fold_left (add_cell_connection pos) path_board cell.connected_paths)
+      cells
+    |> (* Merging cells and paths *)
+    Board.fold Board.add cells
+  in
+  { puzzle with board }
 
-let add_symbols width height symbols =
-  let fold = make_fold width height symbols in
-  fold (fun pos sym_opt board ->
-      (* Updates an element of the board, must be on an already registered element *)
-      let update_element (sym, col) = function
-        | Some elt -> Some { elt with symbol = Some (sym, col) }
-        | None ->
-            error (Msg.bad_symbol_position pos (Symbol.to_string sym));
-            None
-      in
-      match sym_opt with
-      | None -> board
-      | Some sc -> Board.update pos (update_element sc) board)
+let add_symbols symbols puzzle =
+  let fold = make_fold puzzle.width puzzle.height symbols in
+  let board =
+    fold
+      (fun pos board ->
+        (* Updates an element of the board, must be on an already registered element *)
+        let update_element (sym, col) = function
+          | Some elt -> Some { elt with symbol = Some (sym, col) }
+          | None ->
+              error (Msg.bad_symbol_position pos (Symbol.to_string sym));
+              None
+        in
+        function
+        | None -> board | Some sc -> Board.update pos (update_element sc) board)
+      puzzle.board
+  in
+  { puzzle with board }
 
-let validate { properties; width; height; board; _ } =
+let validate ({ properties; width; height; board; _ } as puzzle) =
   let has p = PropertySet.mem p properties in
   let exists f = Board.exists (fun _ -> f) board in
   let ( => ) x y = if x then y else true in
@@ -254,23 +272,25 @@ let validate { properties; width; height; board; _ } =
            )),
       Msg.cylindrical_property_unsatisfied );
   ]
-  |> List.map (fun (rule, msg) ->
+  |> List.iter (fun (rule, msg) ->
          match log Lazy.force rule with
          | Ok (satisfied, h) ->
-             if not satisfied then Result.Error (h @ [ Error msg ])
-             else Ok (satisfied, [])
-         | Error _ -> assert false)
-  |> merge
+             if not satisfied then Log.propagate (h @ [ Error msg ]) else ()
+         | Error _ -> assert false);
+  puzzle
 
 let from_raw ({ name; properties; width; height; paths; symbols } : Raw.t) =
-  let%log board =
-    Board.empty
-    |> make_paths width height paths
-    |> make_cells
-    |> add_symbols width height symbols
+  let%log puzzle =
+    {
+      name;
+      properties;
+      width;
+      height;
+      board = Board.empty;
+      edges = Edges.empty;
+    }
+    |> make_paths paths |> make_cells |> add_symbols symbols |> validate
   in
-  let puzzle = { name; properties; width; height; board } in
-  let+ _ = validate puzzle in
   return puzzle
 
 let from_chn chn =
