@@ -246,7 +246,15 @@ let create_symbol_layer style =
       |> Option.value ~default:I.void
       |> place_on img pos)
 
-let render ?(prefix_path = "output/") style puzzle =
+let create_solution_layer sol =
+  let floatify (x, y) = (float_of_int x, float_of_int y) in
+  let path =
+    sol |> List.map floatify |> points_from_coords |> path_from_points
+  in
+  let area = `O { P.o with width = path_width; cap = `Round; join = `Round } in
+  I.cut ~area path
+
+let render ?(prefix_path = "output/") ?(solution = []) style puzzle =
   let path = Printf.sprintf "%s%s.svg" prefix_path puzzle.name in
   (* taille à revoir *)
   let width, height =
@@ -257,10 +265,15 @@ let render ?(prefix_path = "output/") style puzzle =
   let background_layer = I.const style#background_color
   and paths_layer = I.void |> create_paths_layer style puzzle.board
   and start_layer = I.void |> create_start_layer style puzzle.board
-  and symbol_layer = I.void |> create_symbol_layer style puzzle.board in
+  and symbol_layer = I.void |> create_symbol_layer style puzzle.board
+  and solution_layer =
+    I.const style#blue_path_color |> create_solution_layer solution
+  in
   let img =
     List.fold_left I.blend I.void
-      [ symbol_layer; start_layer; paths_layer; background_layer ]
+      [
+        solution_layer; symbol_layer; start_layer; paths_layer; background_layer;
+      ]
   in
   img
   |> I.move (V2.v (cell_size /. 2.) 0.)

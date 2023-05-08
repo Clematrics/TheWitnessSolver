@@ -28,6 +28,14 @@ let () =
               print_log log;
               []
         in
-        List.iter (Render.render (new Render.Style.style)) puzzles)
+        puzzles
+        |> List.map (fun p ->
+               Printf.printf "Puzzle: %s --------------------------\n"
+                 Puzzle.(p.name);
+               (p, Logic.solve p))
+        |> List.iter (fun (p, solution) ->
+               let prefix_path = "output/solved_" in
+               Render.render ~prefix_path ~solution (new Render.Style.style) p;
+               Render.render (new Render.Style.style) p))
       !input_files
   with e -> Trax.wrap_with_stack_trace e |> Trax.print stderr

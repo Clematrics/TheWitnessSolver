@@ -1,6 +1,8 @@
 open Defs
 open Log
 module Board = Map.Make (Coords)
+module CoordSet = Set.Make (Coords)
+module IntMap = Map.Make (Int)
 
 type path = Path of bool | Start of bool | End of int
 
@@ -17,7 +19,10 @@ type t = {
   width : int;
   height : int;
   board : element Board.t;
+  paths : CoordSet.t;
   edges : Edges.t;
+  starts : bool Board.t;
+  ends : Coords.t IntMap.t;
 }
 
 let make_get width height arr (x, y) =
@@ -41,7 +46,9 @@ let convert_path = function
 let make_paths paths puzzle =
   let open Coords in
   let get = make_get puzzle.width puzzle.height paths in
-  let fold = make_fold puzzle.width puzzle.height paths in
+  let fold (type a) f (i : a) =
+    make_fold puzzle.width puzzle.height paths f i
+  in
   let board, edges =
     fold
       (fun pos (board, edges) -> function
@@ -70,7 +77,20 @@ let make_paths paths puzzle =
               Edges.add_seq (List.to_seq new_edges) edges ))
       (puzzle.board, puzzle.edges)
   in
-  { puzzle with board; edges }
+  let paths, starts, ends =
+    fold
+      (fun pos (paths, starts, ends) -> function
+        | Some (Start b) ->
+            (CoordSet.add pos paths, Board.add pos b starts, ends)
+        | Some (End i) -> (CoordSet.add pos paths, starts, IntMap.add i pos ends)
+        | Some (Meet true)
+        | Some (PathVertical true)
+        | Some (PathHorizontal true) ->
+            (CoordSet.add pos paths, starts, ends)
+        | _ -> (paths, starts, ends))
+      (puzzle.paths, puzzle.starts, puzzle.ends)
+  in
+  { puzzle with board; edges; paths; starts; ends }
 
 (* finding cells : take all corners (path | start) and look for the following pattern
     P P P
@@ -287,7 +307,10 @@ let from_raw ({ name; properties; width; height; paths; symbols } : Raw.t) =
       width;
       height;
       board = Board.empty;
+      paths = CoordSet.empty;
       edges = Edges.empty;
+      starts = Board.empty;
+      ends = IntMap.empty;
     }
     |> make_paths paths |> make_cells |> add_symbols symbols |> validate
   in

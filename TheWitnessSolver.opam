@@ -10,6 +10,7 @@ bug-reports: "https://github.com/Clematrics/TheWitnessSolver/issues"
 depends: [
   "ocaml"
   "dune" {>= "3.7"}
+  "z3"
   "odoc" {with-doc}
 ]
 build: [
