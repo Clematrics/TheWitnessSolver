@@ -137,33 +137,35 @@ $2=Shape:Bar2
 
 % Panel 2.1
 # Crucial puzzle to understand the triad
+$*=Meet:Cut
 $G=Star:Green
 $t=Triad:Magenta
 
        0
- ++-+-+
-+G| |G|
+*-+-+-+
+|G| |G|
 +-+-+-+
 | | | |
 +-+-+-+
 |t| |G|
-o-+-++
+o-+-+-*
 
 % Panel 2.2
 # Crucial puzzle to understand the triad
+$*=Meet:Cut
 $"=PathHorizontal:Cut
 $==PathVertical:Cut
 $M=Star:Magenta
 $t=Triad:Magenta
 
        0
- ++-+-+
-+M| |M|
+*-+-+-+
+|M| |M|
 +-+-+-+
 = | | |
 +-+-+-+
 |t| |M|
-o-+"++
+o-+"+-*
 
 % Panel 2.3
 $t=Triad:Magenta
