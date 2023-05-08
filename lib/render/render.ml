@@ -30,7 +30,7 @@ let points_from_coords = List.map V2.of_tuple
 
 (* Peut-être factorisé *)
 let render_path style board pos elt = function
-  | Path _ ->
+  | Path b ->
       (* TODO: *)
       let img =
         P.empty
@@ -53,6 +53,7 @@ let render_path style board pos elt = function
           I.cut (P.empty |> P.circle c path_width) img
         else img
       in
+      let img = if b then img else I.void in
       List.fold_left
         (fun img o ->
           match Board.find_opt Coords.(pos +: o) board with
@@ -86,33 +87,13 @@ let render_path style board pos elt = function
         [
           ( cell_size /. 2. *. float_of_int dx,
             cell_size /. 2. *. float_of_int dy );
-          (0., 0.);
+          ( cell_size /. 4. *. float_of_int dx,
+            cell_size /. 4. *. float_of_int dy );
         ]
         |> points_from_coords |> path_from_points
       in
       let area = `O { P.o with width = path_width; cap = `Round } in
       I.cut ~area path (I.const style#navigation_color)
-(* | PathHorizontal b ->
-       let path =
-         let e1, e2 =
-           ((path_width -. cell_size) /. 2., (cell_size -. path_width) /. 2.)
-         in
-         if b then
-           [ (e1, 0.); (e2, 0.) ] |> points_from_coords |> path_from_points
-         else
-           let path =
-             [ (e1, 0.); (-.path_width /. 2., 0.) ]
-             |> points_from_coords |> path_from_points
-           and path' =
-             [ (path_width /. 2., 0.); (e2, 0.) ]
-             |> points_from_coords |> path_from_points
-           in
-           P.append path' path
-       in
-       let area = `O { P.o with width = path_width } in
-       I.cut ~area path (I.const navigation_color)
-   | PathVertical b ->
-       render_path board pos elt (PathHorizontal b) |> I.rot (-.Float.pi /. 2.) *)
 
 let img_from_shape color shape r =
   let bsize = 0.9 in
@@ -146,7 +127,7 @@ let img_from_shape color shape r =
     | AnyRotation -> Float.pi /. 6.
   in
   let frame box rotation img =
-    let size = max (Box2.w box) (Box2.h box) in
+    let size = max (max (Box2.w box) (Box2.h box)) 5. in
     I.move V2.(zero - Box2.mid box) img
     |> I.rot rotation
     |> I.scale V2.(1. /. size *. cell_size *. 0.8 * (ox + oy))
@@ -236,12 +217,6 @@ let render_image path size view img =
       raise e
   with Sys_error e -> prerr_endline e
 
-(* let img_nav = img_from_path elt
-   and img_sym =
-     elt.symbol
-     |> Option.map (fun (s, c) -> render_symbol (of_color c) s)
-     |> Option.value ~default:I.void
-   in *)
 let place_on background (x, y) img =
   img
   |> I.move (V2.v (float_of_int x) (float_of_int y))
