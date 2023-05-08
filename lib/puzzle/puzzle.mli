@@ -32,4 +32,3 @@ type t = {
 }
 
 val from_chn : in_channel -> t list Log.log_result
-val validate : 'a -> 'a Log.log_result

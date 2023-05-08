@@ -1,6 +1,12 @@
 (** A logging library based on effects and monadic operations. *)
 
-type history = string list
+type log_entry =
+  | Context of string
+  | Warning of string
+  | Error of string
+  | Fatal of string
+
+type history = log_entry list
 (** The logs, the head being the oldest, and the tail being the last one. *)
 
 type 'a log_result = ('a * history, history) result

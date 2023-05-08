@@ -146,7 +146,121 @@ let add_symbols width height symbols =
       | None -> board
       | Some sc -> Board.update pos (update_element sc) board)
 
-let validate x = return x
+let validate { properties; width; height; board; _ } =
+  let has p = PropertySet.mem p properties in
+  let exists f = Board.exists (fun _ -> f) board in
+  let ( => ) x y = if x then y else true in
+  let paths = Board.filter_map (fun _ { path; _ } -> path) board in
+  let check_symmetry end_i end_j symmetric =
+    let is_symmetric = ref false in
+    for j = 0 to end_j do
+      for i = 0 to end_i do
+        let p = Board.find_opt (i, j) paths and p', (i', j') = symmetric i j in
+        match (p, p') with
+        | Some (Start _), Some (Start _) | Some (End _), Some (End _) -> ()
+        | Some (Start _), _ | _, Some (Start _) ->
+            warn (Msg.unsymmetric "Starts" (i, j) (i', j'));
+            is_symmetric := false
+        | Some (End _), _ | _, Some (End _) ->
+            warn (Msg.unsymmetric "Ends" (i, j) (i', j'));
+            is_symmetric := false
+        | _, _ -> ()
+      done
+    done;
+    !is_symmetric
+  in
+  let check_vertical_symmetry is_cylindrical =
+    let symmetric =
+      if is_cylindrical then fun i j ->
+        (Board.find_opt (i + ((width - 1) / 2), j) paths, (i, j))
+      else fun i j -> (Board.find_opt (width - 1 - i, j) paths, (i, j))
+    in
+    check_symmetry (((width - 1) / 2) - 1) (height - 1) symmetric
+  in
+  let check_horizontal_symmetry _is_cylindrical =
+    let symmetric i j = (Board.find_opt (i, height - 1 - j) paths, (i, j)) in
+    check_symmetry (width - 1) (((height - 1) / 2) - 1) symmetric
+  in
+  let check_axial_symmetry is_cylindrical =
+    let symmetric =
+      if is_cylindrical then fun i j ->
+        (Board.find_opt (i + ((width - 1) / 2), height - 1 - j) paths, (i, j))
+      else fun i j ->
+        (Board.find_opt (width - 1 - i, height - 1 - j) paths, (i, j))
+    in
+    check_symmetry (width - 1) (((height - 1) / 2) - 1) symmetric
+  in
+  let distinct_ends =
+    let module IntSet = Set.Make (Int) in
+    try
+      let _ =
+        Board.fold
+          (fun _ { path; _ } set ->
+            match path with
+            | Some (End n) ->
+                if IntSet.mem n set then raise (Invalid_argument "")
+                else IntSet.add n set
+            | _ -> set)
+          board IntSet.empty
+      in
+      true
+    with Invalid_argument _ -> false
+  in
+  (* check rules
+     Exists Start
+     Exists End
+     End:0 X ... X End:n
+     VerticalSymmetry => Forall Start on left side, Start' symmetric && Forall End on left side, End' symmetric
+     HorizontalSymmetry => Forall Start on up side, Start' symmetric && Forall End on up side, End' symmetric
+     AxialSymmetry => Forall Start on one side, Start' symmetric && Forall End on one side, End' symmetric
+     AxialSymmetry X (VerticalSymmetry || HorizontalSymmetry)
+     BlueYellowPath => VerticalSymmetry || HorizontalSymmetry || AxialSymmetry
+     Cylindrical => First column = Last column
+  *)
+  [
+    ( lazy
+        (exists (function { path = Some (Start _); _ } -> true | _ -> false)),
+      Msg.no_start );
+    ( lazy (exists (function { path = Some (End _); _ } -> true | _ -> false)),
+      Msg.no_end );
+    (lazy distinct_ends, Msg.similar_ends);
+    ( lazy (has VerticalSymmetry => check_vertical_symmetry (has Cylindrical)),
+      Msg.vertical_symmetry_unsatisfied );
+    ( lazy
+        (has HorizontalSymmetry => check_horizontal_symmetry (has Cylindrical)),
+      Msg.horizontal_symmetry_unsatisfied );
+    ( lazy (has AxialSymmetry => check_axial_symmetry (has Cylindrical)),
+      Msg.axial_symmetry_unsatisfied );
+    ( lazy
+        (has AxialSymmetry
+        => not (has VerticalSymmetry || has HorizontalSymmetry)),
+      Msg.incompatible_symmetry_properties "AxialSymmetry"
+        "VerticalSymmetry or HorizontalSymmetry" );
+    ( lazy
+        ((has VerticalSymmetry || has HorizontalSymmetry)
+        => not (has AxialSymmetry)),
+      Msg.incompatible_symmetry_properties
+        "VerticalSymmetry or HorizontalSymmetry" "AxialSymmetry" );
+    ( lazy
+        (has BlueYellowPath
+        => List.exists has
+             [ VerticalSymmetry; HorizontalSymmetry; AxialSymmetry ]),
+      Msg.missing_symmetry );
+    ( lazy
+        (has Cylindrical
+        => (List.init height Fun.id
+           |> List.for_all (fun y ->
+                  Board.(find_opt (0, y) board = find_opt (width - 1, y) board))
+           )),
+      Msg.cylindrical_property_unsatisfied );
+  ]
+  |> List.map (fun (rule, msg) ->
+         match log Lazy.force rule with
+         | Ok (satisfied, h) ->
+             if not satisfied then Result.Error (h @ [ Error msg ])
+             else Ok (satisfied, [])
+         | Error _ -> assert false)
+  |> merge
 
 let from_raw ({ name; properties; width; height; paths; symbols } : Raw.t) =
   let%log board =
@@ -156,7 +270,8 @@ let from_raw ({ name; properties; width; height; paths; symbols } : Raw.t) =
     |> add_symbols width height symbols
   in
   let puzzle = { name; properties; width; height; board } in
-  validate puzzle
+  let+ _ = validate puzzle in
+  return puzzle
 
 let from_chn chn =
   let+ raw_puzzles = Raw.from_chn chn in
@@ -165,7 +280,7 @@ let from_chn chn =
   |> List.map (fun (log, raw) ->
          let ctxt = Printf.sprintf "In puzzle %s:" Raw.(raw.name) in
          match log with
-         | Ok (res, (_ :: _ as h)) -> Ok (res, ctxt :: h)
-         | Error (_ :: _ as h) -> Error (ctxt :: h)
+         | Ok (res, (_ :: _ as h)) -> Ok (res, Context ctxt :: h)
+         | Error (_ :: _ as h) -> Error (Context ctxt :: h)
          | _ -> log)
   |> merge

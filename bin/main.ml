@@ -4,7 +4,13 @@ let usage_msg = "solver <file1> [<file2>] ..."
 let input_files = ref []
 let anon_fun filename = input_files := filename :: !input_files
 let speclist = []
-let print_log = List.iter (Printf.printf "%s\n")
+
+let print_log =
+  List.iter (function
+    | Log.Context s -> Printf.printf "%s\n" s
+    | Log.Warning s -> Printf.printf "   Warning: %s\n" s
+    | Log.Error s -> Printf.printf "   Error: %s\n" s
+    | Log.Fatal s -> Printf.printf "   Fatal: %s\n" s)
 
 let () =
   try

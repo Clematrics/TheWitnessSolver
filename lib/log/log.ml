@@ -11,13 +11,21 @@ open Effect
 open Effect.Shallow
 
 type _ Effect.t +=
-  | Warning : string -> unit t
-  | Error : string -> unit t
-  | Fatal : string -> unit t
+  | WarningEff : string -> unit t
+  | ErrorEff : string -> unit t
+  | FatalEff : string -> unit t
 
-type history = string list
+type log_entry =
+  | Context of string
+  | Warning of string
+  | Error of string
+  | Fatal of string
+
+type history = log_entry list
 type log = { history : history; has_errors : bool }
 type 'a log_result = ('a * history, history) result
+
+exception Fatal_log of history
 
 let return x : 'a log_result = Ok (x, [])
 
@@ -57,28 +65,30 @@ let rec logging_loop : type a. log -> (a, 'b) continuation -> a -> 'b log_result
       effc =
         (fun (type a) (eff : a t) ->
           match eff with
-          | Warning s ->
+          | WarningEff s ->
               Some
                 (fun (k : (a, _) continuation) ->
-                  let msg = Printf.sprintf "Warning: %s" s in
-                  logging_loop { log with history = msg :: log.history } k ())
-          | Error s ->
-              Some
-                (fun (k : (a, _) continuation) ->
-                  let msg = Printf.sprintf "Error: %s" s in
                   logging_loop
-                    { history = msg :: log.history; has_errors = true }
+                    { log with history = Warning s :: log.history }
                     k ())
-          | Fatal s ->
+          | ErrorEff s ->
               Some
                 (fun (k : (a, _) continuation) ->
-                  discontinue_with k (Failure s) handler)
+                  logging_loop
+                    { history = Error s :: log.history; has_errors = true }
+                    k ())
+          | FatalEff s ->
+              Some
+                (fun (k : (a, _) continuation) ->
+                  discontinue_with k
+                    (Fatal_log (List.rev (Fatal s :: log.history)))
+                    handler)
           | _ -> None);
     }
   in
   continue_with k v handler
 
 let log comp = logging_loop { history = []; has_errors = false } (fiber comp)
-let warn s = perform (Warning s)
-let error s = perform (Error s)
-let fatal s = perform (Fatal s)
+let warn s = perform (WarningEff s)
+let error s = perform (ErrorEff s)
+let fatal s = perform (FatalEff s)

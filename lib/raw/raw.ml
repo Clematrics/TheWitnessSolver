@@ -81,7 +81,7 @@ let from_chn chn =
          let lines = list_trim "" raw.lines in
          let ((width, height) as dim) = get_dimension lines in
          (* applying assignments to get a matrix view *)
-         let paths, symbols = matrix_view dim assignments lines in
+         let%log paths, symbols = matrix_view dim assignments lines in
          return { name = raw.name; properties; width; height; paths; symbols })
   |> merge
 
