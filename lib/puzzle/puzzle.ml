@@ -1,7 +1,7 @@
 open Defs
 open Log
-module Board = Map.Make (Coords)
 module CoordSet = Set.Make (Coords)
+module CoordMap = Map.Make (Coords)
 module IntMap = Map.Make (Int)
 
 type path = Path of bool | Start of bool | End of int
@@ -18,11 +18,12 @@ type t = {
   properties : PropertySet.t;
   width : int;
   height : int;
-  board : element Board.t;
-  paths : CoordSet.t;
+  paths : bool CoordMap.t;
   edges : Edges.t;
-  starts : bool Board.t;
+  starts : bool CoordMap.t;
   ends : Coords.t IntMap.t;
+  cells : CoordSet.t;
+  symbols : (Symbol.t * Color.t) CoordMap.t;
 }
 
 let make_get width height arr (x, y) =
@@ -37,22 +38,16 @@ let make_fold width height arr f init =
   done;
   !r
 
-let convert_path = function
-  | Raw.Path.Meet b | Raw.Path.PathHorizontal b | Raw.Path.PathVertical b ->
-      Path b
-  | Raw.Path.Start b -> Start b
-  | Raw.Path.End i -> End i
-
 let make_paths paths puzzle =
   let open Coords in
   let get = make_get puzzle.width puzzle.height paths in
   let fold (type a) f (i : a) =
     make_fold puzzle.width puzzle.height paths f i
   in
-  let board, edges =
+  let edges =
     fold
-      (fun pos (board, edges) -> function
-        | None -> (board, edges)
+      (fun pos edges -> function
+        | None -> edges
         | Some raw_path ->
             let around = Array.make_matrix 3 3 (Some raw_path) in
             List.iter
@@ -66,31 +61,31 @@ let make_paths paths puzzle =
                 (fun offset -> Edge.edge pos (pos +: offset))
                 connected_paths
             in
-            ( Board.add pos
-                {
-                  path = Some (convert_path raw_path);
-                  symbol = None;
-                  connected_paths;
-                  connected_cells = [];
-                }
-                board,
-              Edges.add_seq (List.to_seq new_edges) edges ))
-      (puzzle.board, puzzle.edges)
+            Edges.add_seq (List.to_seq new_edges) edges)
+      puzzle.edges
+  in
+  let add_end pos = function
+    | None -> Some pos
+    | Some _ ->
+        error Msg.similar_ends;
+        Some pos
   in
   let paths, starts, ends =
     fold
       (fun pos (paths, starts, ends) -> function
         | Some (Start b) ->
-            (CoordSet.add pos paths, Board.add pos b starts, ends)
-        | Some (End i) -> (CoordSet.add pos paths, starts, IntMap.add i pos ends)
-        | Some (Meet true)
-        | Some (PathVertical true)
-        | Some (PathHorizontal true) ->
-            (CoordSet.add pos paths, starts, ends)
-        | _ -> (paths, starts, ends))
+            (* A disabled path can still be used indirectly by a second, symmetrically induced path *)
+            (CoordMap.add pos true paths, CoordMap.add pos b starts, ends)
+        | Some (End i) ->
+            ( CoordMap.add pos true paths,
+              starts,
+              IntMap.update i (add_end pos) ends )
+        | Some (Meet b) | Some (PathVertical b) | Some (PathHorizontal b) ->
+            (CoordMap.add pos b paths, starts, ends)
+        | None -> (paths, starts, ends))
       (puzzle.paths, puzzle.starts, puzzle.ends)
   in
-  { puzzle with board; edges; paths; starts; ends }
+  { puzzle with edges; paths; starts; ends }
 
 (* finding cells : take all corners (path | start) and look for the following pattern
     P P P
@@ -102,27 +97,13 @@ let make_paths paths puzzle =
    It is only necessary to check for a cell on the bottom right)
 *)
 let make_cells puzzle =
-  let is_P = function
-    | None -> false
-    | Some { path; _ } ->
-        Option.fold ~none:false
-          ~some:(function End _ -> false | _ -> true)
-          path
-  and is_empty = function
-    | None -> true
-    | Some { path; _ } -> Option.is_none path
-  in
-  let paths =
-    Board.filter
-      (fun _ { path; _ } ->
-        match path with Some (Start _ | Path _) -> true | _ -> false)
-      puzzle.board
-  in
+  let is_P = Option.value ~default:false
+  and is_empty = function None -> true | Some b -> not b in
   let open Coords in
   (* separate board where there are only cells *)
   let cells =
-    let get coords = Board.find_opt coords puzzle.board in
-    Board.fold
+    let get coords = CoordMap.find_opt coords puzzle.paths in
+    CoordMap.fold
       (fun coords _ board ->
         let cell_pos = coords +: (1, 1) in
         let edges =
@@ -130,119 +111,68 @@ let make_cells puzzle =
         in
         let cell = get cell_pos in
         if List.for_all is_P edges && is_empty cell then
-          Board.add cell_pos
-            {
-              path = None;
-              symbol = None;
-              connected_paths = Coords.adjacent;
-              connected_cells = [];
-            }
-            board
+          CoordSet.add cell_pos board
         else board)
-      paths Board.empty
+      puzzle.paths CoordSet.empty
   in
-  (* Adding connected cells to paths *)
-  (* add_path_cell connection updates the path at (pos + offset) in the board
-     by adding to connected_cells the cell at position pos. *)
-  let add_cell_connection pos path_board offset =
-    let update_path = function
-      | Some elt ->
-          Some
-            { elt with connected_cells = (offset *: -1) :: elt.connected_cells }
-      | None -> assert false
-    in
-    let coords = pos +: offset in
-    Board.update coords update_path path_board
-  in
-  let board =
-    puzzle.board
-    |> (* for each cell, go to each adjacent path and update it *)
-    Board.fold
-      (fun pos cell path_board ->
-        List.fold_left (add_cell_connection pos) path_board cell.connected_paths)
-      cells
-    |> (* Merging cells and paths *)
-    Board.fold Board.add cells
-  in
-  { puzzle with board }
+  { puzzle with cells }
 
 let add_symbols symbols puzzle =
   let fold = make_fold puzzle.width puzzle.height symbols in
-  let board =
+  let symbols =
     fold
-      (fun pos board ->
-        (* Updates an element of the board, must be on an already registered element *)
-        let update_element (sym, col) = function
-          | Some elt -> Some { elt with symbol = Some (sym, col) }
-          | None ->
-              error (Msg.bad_symbol_position pos (Symbol.to_string sym));
-              None
-        in
-        function
-        | None -> board | Some sc -> Board.update pos (update_element sc) board)
-      puzzle.board
+      (fun pos symbols -> function
+        | None -> symbols
+        | Some sc -> CoordMap.add pos sc symbols)
+      puzzle.symbols
   in
-  { puzzle with board }
+  { puzzle with symbols }
 
-let validate ({ properties; width; height; board; _ } as puzzle) =
+(* TODO: check symbols are at a good position *)
+let validate ({ properties; width; height; ends; starts; _ } as puzzle) =
   let has p = PropertySet.mem p properties in
-  let exists f = Board.exists (fun _ -> f) board in
   let ( => ) x y = if x then y else true in
-  let paths = Board.filter_map (fun _ { path; _ } -> path) board in
   let check_symmetry end_i end_j symmetric =
     let is_symmetric = ref false in
     for j = 0 to end_j do
       for i = 0 to end_i do
-        let p = Board.find_opt (i, j) paths and p', (i', j') = symmetric i j in
-        match (p, p') with
-        | Some (Start _), Some (Start _) | Some (End _), Some (End _) -> ()
-        | Some (Start _), _ | _, Some (Start _) ->
-            warn (Msg.unsymmetric "Starts" (i, j) (i', j'));
-            is_symmetric := false
-        | Some (End _), _ | _, Some (End _) ->
-            warn (Msg.unsymmetric "Ends" (i, j) (i', j'));
-            is_symmetric := false
-        | _, _ -> ()
+        let pos = (i, j) and pos' = symmetric i j in
+        (* Check start symmetry *)
+        (match
+           (CoordMap.find_opt pos starts, CoordMap.find_opt pos' starts)
+         with
+        | Some _, Some _ | None, None -> ()
+        | _ ->
+            warn (Msg.unsymmetric "Starts" pos pos');
+            is_symmetric := false);
+        (* Check end symmetry *)
+        if
+          IntMap.exists (fun _ -> ( = ) pos) ends
+          != IntMap.exists (fun _ -> ( = ) pos') ends
+        then (
+          warn (Msg.unsymmetric "Ends" pos pos');
+          is_symmetric := false)
       done
     done;
     !is_symmetric
   in
   let check_vertical_symmetry is_cylindrical =
     let symmetric =
-      if is_cylindrical then fun i j ->
-        (Board.find_opt (i + ((width - 1) / 2), j) paths, (i, j))
-      else fun i j -> (Board.find_opt (width - 1 - i, j) paths, (i, j))
+      if is_cylindrical then fun i j -> (i + ((width - 1) / 2), j)
+      else fun i j -> (width - 1 - i, j)
     in
     check_symmetry (((width - 1) / 2) - 1) (height - 1) symmetric
   in
   let check_horizontal_symmetry _is_cylindrical =
-    let symmetric i j = (Board.find_opt (i, height - 1 - j) paths, (i, j)) in
+    let symmetric i j = (i, height - 1 - j) in
     check_symmetry (width - 1) (((height - 1) / 2) - 1) symmetric
   in
   let check_axial_symmetry is_cylindrical =
     let symmetric =
-      if is_cylindrical then fun i j ->
-        (Board.find_opt (i + ((width - 1) / 2), height - 1 - j) paths, (i, j))
-      else fun i j ->
-        (Board.find_opt (width - 1 - i, height - 1 - j) paths, (i, j))
+      if is_cylindrical then fun i j -> (i + ((width - 1) / 2), height - 1 - j)
+      else fun i j -> (width - 1 - i, height - 1 - j)
     in
     check_symmetry (width - 1) (((height - 1) / 2) - 1) symmetric
-  in
-  let distinct_ends =
-    let module IntSet = Set.Make (Int) in
-    try
-      let _ =
-        Board.fold
-          (fun _ { path; _ } set ->
-            match path with
-            | Some (End n) ->
-                if IntSet.mem n set then raise (Invalid_argument "")
-                else IntSet.add n set
-            | _ -> set)
-          board IntSet.empty
-      in
-      true
-    with Invalid_argument _ -> false
   in
   (* check rules
      Exists Start
@@ -256,12 +186,8 @@ let validate ({ properties; width; height; board; _ } as puzzle) =
      Cylindrical => First column = Last column
   *)
   [
-    ( lazy
-        (exists (function { path = Some (Start _); _ } -> true | _ -> false)),
-      Msg.no_start );
-    ( lazy (exists (function { path = Some (End _); _ } -> true | _ -> false)),
-      Msg.no_end );
-    (lazy distinct_ends, Msg.similar_ends);
+    (lazy (not (CoordMap.is_empty starts)), Msg.no_start);
+    (lazy (not (IntMap.is_empty ends)), Msg.no_end);
     ( lazy (has VerticalSymmetry => check_vertical_symmetry (has Cylindrical)),
       Msg.vertical_symmetry_unsatisfied );
     ( lazy
@@ -284,13 +210,6 @@ let validate ({ properties; width; height; board; _ } as puzzle) =
         => List.exists has
              [ VerticalSymmetry; HorizontalSymmetry; AxialSymmetry ]),
       Msg.missing_symmetry );
-    ( lazy
-        (has Cylindrical
-        => (List.init height Fun.id
-           |> List.for_all (fun y ->
-                  Board.(find_opt (0, y) board = find_opt (width - 1, y) board))
-           )),
-      Msg.cylindrical_property_unsatisfied );
   ]
   |> List.iter (fun (rule, msg) ->
          match log Lazy.force rule with
@@ -306,11 +225,12 @@ let from_raw ({ name; properties; width; height; paths; symbols } : Raw.t) =
       properties;
       width;
       height;
-      board = Board.empty;
-      paths = CoordSet.empty;
+      paths = CoordMap.empty;
       edges = Edges.empty;
-      starts = Board.empty;
+      starts = CoordMap.empty;
       ends = IntMap.empty;
+      cells = CoordSet.empty;
+      symbols = CoordMap.empty;
     }
     |> make_paths paths |> make_cells |> add_symbols symbols |> validate
   in
