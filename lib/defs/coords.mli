@@ -11,4 +11,5 @@ val horizontal : t list
 val vertical : t list
 val corners : t list
 
+val to_float : t -> float * float
 val to_string : t -> string
