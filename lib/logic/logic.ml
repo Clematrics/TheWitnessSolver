@@ -32,7 +32,10 @@ let from_puzzle puzzle =
     Edges.filter
       (fun e ->
         let p, p' = Edge.get e in
-        CoordSet.mem p puzzle.paths && CoordSet.mem p' puzzle.paths)
+        let is_usable p =
+          CoordMap.find_opt p puzzle.paths |> Option.value ~default:false
+        in
+        is_usable p && is_usable p')
       puzzle.edges
   in
   let edges =
@@ -44,7 +47,7 @@ let from_puzzle puzzle =
       walkable_edges PathVar.empty
   in
   let starts =
-    Board.fold
+    CoordMap.fold
       (fun (x, y) b ->
         if b then
           let name = Printf.sprintf "path_start(%i,%i)" x y in
@@ -59,48 +62,49 @@ let from_puzzle puzzle =
         EndVar.add (x, y) (PathVariable name))
       puzzle.ends EndVar.empty
   in
-  let is_path_adjacent pos e =
-    let p, p' = Edge.get e in
-    p = pos || p' = pos
-  in
   let assertions =
-    CoordSet.fold
-      (fun p assertions ->
-        let adjacent_paths =
-          walkable_edges
-          |> Edges.filter (is_path_adjacent p)
-          |> Edges.to_seq
-          |> Seq.map (Fun.flip PathVar.find edges)
-        and start_path =
-          puzzle.starts
-          |> Board.filter (fun p' activated -> activated && p = p')
-          |> Board.to_seq |> Seq.map fst
-          |> Seq.map (Fun.flip StartVar.find starts)
-        and end_path =
-          puzzle.ends
-          |> IntMap.filter (fun _ p' -> p = p')
-          |> IntMap.to_seq |> Seq.map snd
-          |> Seq.map (Fun.flip EndVar.find ends)
-        in
-        let connected_paths =
-          Seq.append adjacent_paths (Seq.append start_path end_path)
-        in
-        Seq.fold_left
-          (fun assertions var ->
-            let connected_less_var = Seq.filter (( != ) var) connected_paths in
-            Seq.fold_left
-              (fun assertions var' ->
-                let connected_less_var_var' =
-                  Seq.filter (( != ) var') connected_less_var
-                in
-                if Seq.is_empty connected_less_var_var' then assertions
-                else
-                  (var &&& var'
-                  ==> Not (Or (List.of_seq connected_less_var_var')))
-                  :: assertions)
-              ((var ==> Or (List.of_seq connected_less_var)) :: assertions)
-              connected_less_var)
-          assertions connected_paths)
+    CoordMap.fold
+      (fun p b assertions ->
+        if not b then assertions
+        else
+          let adjacent_paths =
+            walkable_edges
+            |> Edges.filter (Edge.is_adjacent p)
+            |> Edges.to_seq
+            |> Seq.map (Fun.flip PathVar.find edges)
+          and start_path =
+            puzzle.starts
+            |> CoordMap.filter (fun p' activated -> activated && p = p')
+            |> CoordMap.to_seq |> Seq.map fst
+            |> Seq.map (Fun.flip StartVar.find starts)
+          and end_path =
+            puzzle.ends
+            |> IntMap.filter (fun _ p' -> p = p')
+            |> IntMap.to_seq |> Seq.map snd
+            |> Seq.map (Fun.flip EndVar.find ends)
+          in
+          let connected_paths =
+            Seq.append adjacent_paths (Seq.append start_path end_path)
+          in
+          (* TODO: develop operators for this, like forall, … *)
+          Seq.fold_left
+            (fun assertions var ->
+              let connected_less_var =
+                Seq.filter (( != ) var) connected_paths
+              in
+              Seq.fold_left
+                (fun assertions var' ->
+                  let connected_less_var_var' =
+                    Seq.filter (( != ) var') connected_less_var
+                  in
+                  if Seq.is_empty connected_less_var_var' then assertions
+                  else
+                    (var &&& var'
+                    ==> Not (Or (List.of_seq connected_less_var_var')))
+                    :: assertions)
+                ((var ==> Or (List.of_seq connected_less_var)) :: assertions)
+                connected_less_var)
+            assertions connected_paths)
       puzzle.paths []
   in
   let assertions =
@@ -218,11 +222,11 @@ let solve puzzle =
                   Z3.Model.eval model (Z3.Boolean.mk_const ctxt symbol) false
                 with
                 | None ->
-                    Printf.printf "%s -> None\n" name;
+                    (* Printf.printf "%s -> None\n" name; *)
                     valuation
                 | Some expr ->
                     let e = Z3.Expr.to_string expr in
-                    Printf.printf "%s -> %s\n" name e;
+                    (* Printf.printf "%s -> %s\n" name e; *)
                     Var.add name (e = "true") valuation)
               vars Var.empty)
     | Z3.Solver.UNKNOWN -> raise (Invalid_argument "Solver: Unknown")
