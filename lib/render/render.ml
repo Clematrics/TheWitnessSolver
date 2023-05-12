@@ -20,6 +20,7 @@ let of_color =
 let path_width = 0.5
 let cell_size = 2.
 let cell_inner = cell_size -. path_width
+let v2 p = p |> Coords.to_float |> V2.of_tuple
 
 let path_from_points ?(rel = false) = function
   | [] -> P.empty
@@ -29,71 +30,71 @@ let shape_from_points ?(rel = false) p = p |> path_from_points ~rel |> P.close
 let points_from_coords = List.map V2.of_tuple
 
 (* Peut-être factorisé *)
-let render_path style board pos elt = function
-  | Path b ->
-      (* TODO: *)
-      let img =
-        P.empty
-        |> P.rect
-             (Box2.v
-                V2.(zero - (v path_width path_width / 2.))
-                V2.(v path_width path_width))
-        |> Fun.flip I.cut (I.const style#navigation_color)
-      in
-      let img =
-        if List.length elt.connected_paths = 2 then
-          let x, y =
-            List.fold_left
-              (fun o -> o |> Coords.( +: ))
-              (0, 0) elt.connected_paths
-          in
-          let c =
-            V2.( * ) (path_width /. 2.) (V2.v (float_of_int x) (float_of_int y))
-          in
-          I.cut (P.empty |> P.circle c path_width) img
-        else img
-      in
-      let img = if b then img else I.void in
-      List.fold_left
-        (fun img o ->
-          match Board.find_opt Coords.(pos +: o) board with
-          | Some { path = Some (Path _); _ } | Some { path = Some (Start _); _ }
-            ->
-              let cell_half_inner = (cell_size /. 2.) -. path_width in
-              let dx, dy = o in
-              let dx, dy = (float_of_int dx, float_of_int dy) in
-              let sx, sy =
-                ( (dx *. cell_half_inner) -. (dy *. path_width),
-                  (dy *. cell_half_inner) +. (dx *. path_width) )
-              in
-              let dx, dy = (dx +. dy, dy -. dx) in
-              let path =
-                P.empty
-                |> P.rect
-                     (Box2.v
-                        V2.(mul (v dx dy) (v path_width path_width / 2.))
-                        V2.(v sx sy))
-              in
-              I.cut path (I.const style#navigation_color) |> I.blend img
-          | _ -> img)
-        img elt.connected_paths
-  | Start b ->
-      let circ = P.circle V2.zero path_width P.empty in
-      I.cut circ
-        (I.const (if b then style#navigation_color else style#disabled_color))
-  | End _ ->
-      let dx, dy = List.hd elt.connected_paths in
-      let path =
-        [
-          ( cell_size /. 2. *. float_of_int dx,
-            cell_size /. 2. *. float_of_int dy );
-          ( cell_size /. 4. *. float_of_int dx,
-            cell_size /. 4. *. float_of_int dy );
-        ]
-        |> points_from_coords |> path_from_points
-      in
-      let area = `O { P.o with width = path_width; cap = `Round } in
-      I.cut ~area path (I.const style#navigation_color)
+(* let render_path style board pos elt = function
+   | Path b ->
+       (* TODO: *)
+       let img =
+         P.empty
+         |> P.rect
+              (Box2.v
+                 V2.(zero - (v path_width path_width / 2.))
+                 V2.(v path_width path_width))
+         |> Fun.flip I.cut (I.const style#navigation_color)
+       in
+       let img =
+         if List.length elt.connected_paths = 2 then
+           let x, y =
+             List.fold_left
+               (fun o -> o |> Coords.( +: ))
+               (0, 0) elt.connected_paths
+           in
+           let c =
+             V2.( * ) (path_width /. 2.) (V2.v (float_of_int x) (float_of_int y))
+           in
+           I.cut (P.empty |> P.circle c path_width) img
+         else img
+       in
+       let img = if b then img else I.void in
+       List.fold_left
+         (fun img o ->
+           match CoordMap.find_opt Coords.(pos +: o) board with
+           | Some { path = Some (Path _); _ } | Some { path = Some (Start _); _ }
+             ->
+               let cell_half_inner = (cell_size /. 2.) -. path_width in
+               let dx, dy = o in
+               let dx, dy = (float_of_int dx, float_of_int dy) in
+               let sx, sy =
+                 ( (dx *. cell_half_inner) -. (dy *. path_width),
+                   (dy *. cell_half_inner) +. (dx *. path_width) )
+               in
+               let dx, dy = (dx +. dy, dy -. dx) in
+               let path =
+                 P.empty
+                 |> P.rect
+                      (Box2.v
+                         V2.(mul (v dx dy) (v path_width path_width / 2.))
+                         V2.(v sx sy))
+               in
+               I.cut path (I.const style#navigation_color) |> I.blend img
+           | _ -> img)
+         img elt.connected_paths
+   | Start b ->
+       let circ = P.circle V2.zero path_width P.empty in
+       I.cut circ
+         (I.const (if b then style#navigation_color else style#disabled_color))
+   | End _ ->
+       let dx, dy = List.hd elt.connected_paths in
+       let path =
+         [
+           ( cell_size /. 2. *. float_of_int dx,
+             cell_size /. 2. *. float_of_int dy );
+           ( cell_size /. 4. *. float_of_int dx,
+             cell_size /. 4. *. float_of_int dy );
+         ]
+         |> points_from_coords |> path_from_points
+       in
+       let area = `O { P.o with width = path_width; cap = `Round } in
+       I.cut ~area path (I.const style#navigation_color) *)
 
 let img_from_shape color shape r =
   let bsize = 0.9 in
@@ -217,63 +218,265 @@ let render_image path size view img =
       raise e
   with Sys_error e -> prerr_endline e
 
-let place_on background (x, y) img =
-  img
-  |> I.move (V2.v (float_of_int x) (float_of_int y))
-  |> Fun.flip I.blend background
+type incomplete_path = {
+  start_by_path : bool;
+  completed : Coords.t list;
+      (** Accumulator of all points crossed on the path. It is garuanteed to
+          have at least two elements at creation *)
+  last_edge : Edge.t;
+}
 
-let create_paths_layer style board =
-  Board.fold
-    (fun pos elt img ->
-      match elt.path with
-      | None | Some (Start _) -> img
-      | Some p -> render_path style board pos elt p |> place_on img pos)
-    board
+type completed_path = {
+  completed : Coords.t list;
+  start_by_path : bool;
+  end_by_path : bool;
+}
 
-let create_start_layer style board =
-  Board.fold
-    (fun pos elt img ->
-      match elt.path with
-      | Some (Start _ as p) ->
-          render_path style board pos elt p |> place_on img pos
-      | _ -> img)
-    board
+let orr o o' = match o with None -> o' | _ -> o
 
-let create_symbol_layer style =
-  Board.fold (fun pos elt img ->
-      elt.symbol
-      |> Option.map (fun (s, c) -> render_symbol style (of_color c) s)
-      |> Option.value ~default:I.void
-      |> place_on img pos)
-
-let create_solution_layer sol =
-  let floatify (x, y) = (float_of_int x, float_of_int y) in
-  let path =
-    sol |> List.map floatify |> points_from_coords |> path_from_points
+let pp_list pp fmt l =
+  let rec inner fmt = function
+    | [] -> ()
+    | x :: l -> Format.fprintf fmt " %a,@; %a " pp x inner l
   in
-  let area = `O { P.o with width = path_width; cap = `Round; join = `Round } in
-  I.cut ~area path
+  Format.fprintf fmt "[@[ %a @]]" inner l
 
-let render ?(prefix_path = "output/") ?(solution = []) style puzzle =
-  let path = Printf.sprintf "%s%s.svg" prefix_path puzzle.name in
+let pp_coords fmt (x, y) = Format.fprintf fmt "%i, %i" x y
+
+let pp_edge fmt e =
+  let p, p' = Edge.get e in
+  Format.fprintf fmt "(%a -> %a)" pp_coords p pp_coords p'
+
+(* TODO: bad junction when end is perpendicular to a single path *)
+let paths_layer style { paths; edges; ends; _ } =
+  let arity_map =
+    CoordMap.empty
+    |> (* Adding junctions with their arity *)
+    CoordMap.fold
+      (fun pos _ ->
+        edges
+        |> Edges.filter (Edge.is_adjacent pos)
+        |> Edges.cardinal |> CoordMap.add pos)
+      paths
+  in
+  (* decrease arity of points adjacent to the edge given *)
+  let decrease_arity edge map =
+    (* decrease arity of a point *)
+    let decrease_arity pos =
+      CoordMap.update pos (function
+        | None | Some 0 -> None
+        | Some i -> Some (i - 1))
+    in
+    let c, c' = Edge.get edge in
+    map |> decrease_arity c |> decrease_arity c'
+  in
+  let rec synthetize_path complete_path arity_map edges =
+    (* Format.printf "Synthesizing %a\n" (pp_list pp_coords) complete_path; *)
+    let path = start_path arity_map edges in
+    let hole_size = (cell_size -. path_width) /. 3. in
+    let rec iter_points ?(is_first = false) acc = function
+      | [] -> [ acc ]
+      | c :: c' :: l when CoordMap.find c paths = false ->
+          (* Format.printf "Found a cut at %a\n" pp_coords c; *)
+          let p, p' = (v2 c, v2 c') in
+          let dir = V2.(p' - p) in
+          acc :: iter_points [ V2.(p + (hole_size /. 2. * dir)) ] (c' :: l)
+      | c :: c' :: l when CoordMap.find c' paths = false ->
+          (* Format.printf "Found a cut at %a\n" pp_coords c'; *)
+          let p, p' = (v2 c, v2 c') in
+          let dir = V2.(p' - p) in
+          (V2.(p' - (hole_size /. 2. * dir)) :: p :: acc)
+          :: iter_points [] (c' :: l)
+      | c :: c' :: l when IntMap.exists (fun _ -> ( = ) c) ends ->
+          let p, p' = (v2 c, v2 c') in
+          let dir = V2.(p' - p) in
+          iter_points [ V2.(p' - (cell_size /. 4. * dir)) ] (c' :: l)
+      | c :: c' :: l when IntMap.exists (fun _ -> ( = ) c') ends ->
+          let p, p' = (v2 c, v2 c') in
+          let dir = V2.(p' - p) in
+          (V2.(p + (cell_size /. 4. * dir)) :: p :: acc) :: iter_points [] l
+      | c :: c' :: l when is_first ->
+          let p, p' = (v2 c, v2 c') in
+          let dir = V2.(p' - p) in
+          iter_points (V2.(p - (path_width /. cell_size * dir)) :: acc) (c' :: l)
+      | [ c; c' ]
+      (* c' is not an end nor a cut path because of the patterns above *) ->
+          let p, p' = (v2 c, v2 c') in
+          let dir = V2.(p' - p) in
+          iter_points (V2.(p' + (path_width /. cell_size * dir)) :: acc) []
+      | c :: l -> iter_points (v2 c :: acc) l
+    in
+    complete_path
+    |> iter_points ~is_first:true []
+    |> List.fold_left
+         (fun path -> function
+           | s :: l ->
+               let path = path |> P.sub s in
+               List.fold_left (Fun.flip P.line) path l
+           | [] -> path)
+         path
+  and iter_from_path ({ completed; last_edge; _ } as path) arity_map edges =
+    (* Format.printf "Go through edge %a to %a\n" pp_edge last_edge pp_coords
+       (List.hd completed); *)
+    (* try to find the next edge in the same direction as last_edge *)
+    (* possible edges to cross *)
+    let candidate_edges =
+      edges |> Edges.filter (Edge.is_adjacent (List.hd completed))
+    in
+    (* edge opposite to the last one crossed, if in candidates *)
+    let opposite_edge =
+      candidate_edges
+      |> Edges.filter (fun e -> Edge.direction e = Edge.direction last_edge)
+      |> Edges.min_elt_opt
+    in
+    (* select the opposite edge, or a candidate edge otherwise *)
+    let edge = orr opposite_edge (Edges.min_elt_opt candidate_edges) in
+    match edge with
+    | Some edge ->
+        (* Format.printf "Found edge %a to continue\n" pp_edge edge; *)
+        let next_point = Edge.other_end edge (List.hd completed) in
+        (if CoordMap.mem next_point arity_map then
+           iter_from_path
+             { path with completed = next_point :: completed; last_edge = edge }
+         else synthetize_path (next_point :: completed))
+          (decrease_arity edge arity_map)
+          (Edges.remove edge edges)
+    | None ->
+        (* No edges left to continue the path *)
+        synthetize_path completed arity_map edges
+  and start_path arity_map edges =
+    (* select a path that has only one edge first *)
+    match
+      arity_map |> CoordMap.filter (fun _ -> ( = ) 1) |> CoordMap.choose_opt
+    with
+    | Some (pos, _) ->
+        (* Format.printf "Start by junction at %a\n" pp_coords pos; *)
+        let edge =
+          edges |> Edges.filter (Edge.is_adjacent pos) |> Edges.min_elt
+        in
+        let pos' = Edge.other_end edge pos in
+        (* check path exists on the other size *)
+        (if CoordMap.mem pos' arity_map then
+           iter_from_path
+             ({
+                start_by_path = true;
+                completed = [ pos'; pos ];
+                last_edge = edge;
+              }
+               : incomplete_path)
+         else synthetize_path [ pos'; pos ])
+          (decrease_arity edge arity_map)
+          (Edges.remove edge edges)
+    | None -> (
+        (* TODO: select a path with more than one edge *)
+        (* select an edge otherwise *)
+        match edges |> Edges.min_elt_opt with
+        | Some edge ->
+            (* Format.printf "Start by edge %a\n" pp_edge edge; *)
+            (* select a point in a direction to go to. c is the start, c' the current end *)
+            let c, c' = Edge.get edge in
+            let c, c' =
+              if CoordMap.mem c arity_map then (c', c)
+                (* choose c as the current point *)
+              else (c, c')
+            in
+            (if CoordMap.mem c arity_map || CoordMap.mem c' arity_map then
+               iter_from_path
+                 {
+                   start_by_path = false;
+                   completed = [ c'; c ];
+                   last_edge = edge;
+                 }
+             else
+               (* Edge disconnected from both sides *)
+               synthetize_path [ c'; c ])
+              (decrease_arity edge arity_map)
+              (Edges.remove edge edges)
+        | None ->
+            (* Printf.printf "Starting nowhere, no edge found\n"; *)
+            P.empty
+            (* No other paths can be created *))
+  in
+  let path = start_path arity_map edges in
+  let area = `O { P.o with width = path_width; join = `Round } in
+  I.cut ~area path (I.const style#navigation_color)
+
+let start_layer style starts =
+  CoordMap.fold
+    (fun (i, j) b ->
+      let color = if b then style#navigation_color else style#disabled_color
+      and circ = P.circle V2.zero path_width P.empty in
+      color |> I.const |> I.cut circ
+      |> I.move V2.(v (float_of_int i) (float_of_int j))
+      |> I.blend)
+    starts I.void
+
+let end_layer style { ends; edges; _ } =
+  IntMap.fold
+    (fun _ pos ->
+      let pos' =
+        edges
+        |> Edges.filter (Edge.is_adjacent pos)
+        |> Edges.choose
+        |> Fun.flip Edge.other_end pos
+      in
+      let dx, dy = Coords.(pos' +: ( -: ) pos) in
+      let path =
+        [
+          ( cell_size /. 2. *. float_of_int dx,
+            cell_size /. 2. *. float_of_int dy );
+          ( cell_size /. 4. *. float_of_int dx,
+            cell_size /. 4. *. float_of_int dy );
+        ]
+        |> points_from_coords |> path_from_points
+      in
+      let area = `O { P.o with width = path_width; cap = `Round } in
+      I.const style#navigation_color
+      |> I.cut ~area path
+      |> I.move (v2 pos)
+      |> I.blend)
+    ends I.void
+
+let symbol_layer style symbols =
+  CoordMap.fold
+    (fun (i, j) (symbol, color) ->
+      symbol
+      |> render_symbol style (of_color color)
+      |> I.move V2.(v (float_of_int i) (float_of_int j))
+      |> I.blend)
+    symbols I.void
+
+let solution_layer style sol =
+  match List.rev_map v2 sol with
+  | start :: _ as sol ->
+      (* a solution should always has at least two points *)
+      let[@warning "-8"] (p :: p' :: sol) = List.rev sol in
+      (* changing the last point to adjust it to the end *)
+      let sol = V2.(p' + (0.5 * (p - p'))) :: p' :: sol in
+      let path = sol |> path_from_points in
+      let circ = P.empty |> P.circle start path_width in
+      let base = I.const style#blue_path_color in
+      let area =
+        `O { P.o with width = path_width; cap = `Round; join = `Round }
+      in
+      base |> I.cut ~area path |> I.blend (base |> I.cut circ)
+  | [] -> I.void
+
+let render ?(path = "output/") ?(solution = []) style puzzle =
+  (* Printf.printf "Rendering puzzle %s\n" puzzle.name; *)
   (* taille à revoir *)
   let width, height =
     (float_of_int (puzzle.width + 1), float_of_int (puzzle.height + 1))
   in
   let size = Size2.v width height in
   let view = Box2.v P2.o size in
-  let background_layer = I.const style#background_color
-  and paths_layer = I.void |> create_paths_layer style puzzle.board
-  and start_layer = I.void |> create_start_layer style puzzle.board
-  and symbol_layer = I.void |> create_symbol_layer style puzzle.board
-  and solution_layer =
-    I.const style#blue_path_color |> create_solution_layer solution
-  in
   let img =
-    List.fold_left I.blend I.void
-      [
-        solution_layer; symbol_layer; start_layer; paths_layer; background_layer;
-      ]
+    I.const style#background_color
+    |> I.blend (paths_layer style puzzle)
+    |> I.blend (start_layer style puzzle.starts)
+    |> I.blend (end_layer style puzzle)
+    |> I.blend (symbol_layer style puzzle.symbols)
+    |> I.blend (solution_layer style solution)
   in
   img
   |> I.move (V2.v (cell_size /. 2.) 0.)

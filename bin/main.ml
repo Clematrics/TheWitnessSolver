@@ -34,8 +34,16 @@ let () =
                  Puzzle.(p.name);
                (p, Logic.solve p))
         |> List.iter (fun (p, solution) ->
-               let prefix_path = "output/solved_" in
-               Render.render ~prefix_path ~solution (new Render.Style.style) p;
-               Render.render (new Render.Style.style) p))
+               let path_solved =
+                 Printf.sprintf "output/%s/%s_solved.svg" filename
+                   Puzzle.(p.name)
+               in
+               let path =
+                 Printf.sprintf "output/%s/%s.svg" filename Puzzle.(p.name)
+               in
+               Render.render ~path:path_solved ~solution
+                 (new Render.Style.style)
+                 p;
+               Render.render ~path (new Render.Style.style) p))
       !input_files
   with e -> Trax.wrap_with_stack_trace e |> Trax.print stderr
