@@ -21,6 +21,7 @@ type t = {
           it is not usable by the player or by any symmetric path (for instance
           when there is a PathHorizontal:Cut). It is encoded this way to
           simplify cell detections.
+          Paths include starts and ends.
 
           TODO: is it really necessary? Yes if we eventually want to guarantee
           that both sides of edges are existing paths.
