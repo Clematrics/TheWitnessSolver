@@ -92,25 +92,22 @@ let make_paths paths puzzle =
     P / P
     P P P
    where
-     P (path) stands for Path | Start
+     P (path) stands for Some Path
      / (corner) stands for None
    It is only necessary to check for a cell on the bottom right)
 *)
 let make_cells puzzle =
-  let is_P = Option.value ~default:false
-  and is_empty = function None -> true | Some b -> not b in
-  let open Coords in
-  (* separate board where there are only cells *)
   let cells =
     let get coords = CoordMap.find_opt coords puzzle.paths in
     CoordMap.fold
       (fun coords _ board ->
+        let open Coords in
         let cell_pos = coords +: (1, 1) in
-        let edges =
+        let cell = get cell_pos in
+        let borders =
           List.map (fun offset -> get (cell_pos +: offset)) Coords.all
         in
-        let cell = get cell_pos in
-        if List.for_all is_P edges && is_empty cell then
+        if List.for_all Option.is_some borders && Option.is_none cell then
           CoordSet.add cell_pos board
         else board)
       puzzle.paths CoordSet.empty
