@@ -4,15 +4,6 @@ module CoordSet = Set.Make (Coords)
 module CoordMap = Map.Make (Coords)
 module IntMap = Map.Make (Int)
 
-type path = Path of bool | Start of bool | End of int
-
-type element = {
-  path : path option;
-  symbol : (Symbol.t * Color.t) option;
-  connected_paths : Coords.t list;
-  connected_cells : Coords.t list;
-}
-
 type t = {
   name : string;
   properties : PropertySet.t;

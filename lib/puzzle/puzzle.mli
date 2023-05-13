@@ -3,30 +3,6 @@ module CoordSet : Set.S with type elt = Coords.t
 module CoordMap : Map.S with type key = Coords.t
 module IntMap : Map.S with type key = Int.t
 
-(* TODO: deprecate *)
-type path =
-  | Path of bool
-      (** [Path b] describes a path that can be connected to adjacent path
-          elements. The boolean [b] indicates if the path is active ([b=true])
-          or not. This can represent all kind of paths : For instance, a cut
-          horizontal path is encoded as a [Path false] connected to its left and
-          right. *)
-  | Start of bool
-      (** [Start b] describes a start node. [b=true] when the puzzle can be
-          started from this start, [b=false] otherwise. This is useful to
-          represent specific puzzles where a start is hidden or unavailable. *)
-  | End of int
-      (** [End i] represents a possible objective of a puzzle, identified with
-          the integer [i] *)
-
-(* TODO: deprecate *)
-type element = {
-  path : path option;
-  symbol : (Symbol.t * Color.t) option;
-  connected_paths : Coords.t list;
-  connected_cells : Coords.t list;
-}
-
 type t = {
   name : string;
       (** The name of the puzzle. TODO: To replace with a full reference: file +
@@ -63,7 +39,7 @@ type t = {
   ends : Coords.t IntMap.t;
       (** A partially bijective (identifier -> coordinates) map of ends *)
   cells : CoordSet.t;  (** The set of cells, characterised by their center *)
-  symbols : (Symbol.t * Color.t) CoordMap.t
+  symbols : (Symbol.t * Color.t) CoordMap.t;
 }
 (** The type describing a puzzle
 
