@@ -462,7 +462,21 @@ let solution_layer style sol =
       base |> I.cut ~area path |> I.blend (base |> I.cut circ)
   | [] -> I.void
 
-let render ?(path = "output/") ?(solution = []) style puzzle =
+let debug_layer style debug { cells ; _ } =
+  if debug then
+    let cells_path =
+    P.empty |>
+    CoordSet.fold (fun pos ->
+      let p = v2 pos in
+      let dx = style#debug_cell_size /. 2. *. cell_size in
+      let dv = V2.v dx dx in
+      P.rect V2.(Box2.of_pts (p - dv) (p + dv))
+    ) cells in
+    I.cut cells_path (I.const style#debug_cell_color)
+  else
+    I.void
+
+let render ?(path = "output/") ?(solution = []) ?(debug=false) style puzzle =
   (* Printf.printf "Rendering puzzle %s\n" puzzle.name; *)
   (* taille à revoir *)
   let width, height =
@@ -477,6 +491,7 @@ let render ?(path = "output/") ?(solution = []) style puzzle =
     |> I.blend (end_layer style puzzle)
     |> I.blend (symbol_layer style puzzle.symbols)
     |> I.blend (solution_layer style solution)
+    |> I.blend (debug_layer style debug puzzle)
   in
   img
   |> I.move (V2.v (cell_size /. 2.) 0.)

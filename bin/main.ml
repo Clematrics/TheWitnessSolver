@@ -44,6 +44,6 @@ let () =
                Render.render ~path:path_solved ~solution
                  (new Render.Style.style)
                  p;
-               Render.render ~path (new Render.Style.style) p))
+               Render.render ~path ~debug:true (new Render.Style.style) p))
       !input_files
   with e -> Trax.wrap_with_stack_trace e |> Trax.print stderr

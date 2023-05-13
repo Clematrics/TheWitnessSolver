@@ -15,4 +15,7 @@ class style =
     method navigation_color = Gg.Color.v_srgbi 26 13 0
     method path_color = Gg.Color.v_srgbi 0 255 255
     method cell_color = Gg.Color.v_srgbi 0 255 255
+
+    method debug_cell_size = 0.7
+    method debug_cell_color = Gg.Color.v_srgbi 255 0 0 ~a:0.1
   end
