@@ -20,7 +20,7 @@ let () =
         let filepath = "puzzles/" ^ filename in
         let chn = open_in filepath in
         let puzzles =
-          match Puzzle.from_chn chn with
+          match Puzzle.from_chn ~filename chn with
           | Ok (res, log) ->
               print_log log;
               res
@@ -29,21 +29,20 @@ let () =
               []
         in
         puzzles
-        |> List.map (fun p ->
-               Printf.printf "Puzzle: %s --------------------------\n"
+        |> List.iter (fun p ->
+               Printf.printf "Puzzle: %s --------------------------\n%!"
                  Puzzle.(p.name);
-               (p, Logic.solve p))
-        |> List.iter (fun (p, solution) ->
+               let path =
+                 Printf.sprintf "output/%s/%s.svg" filename Puzzle.(p.name)
+               in
+               Render.render ~path ~debug:true (new Render.Style.style) p;
+               let solution = Logic.solve p in
                let path_solved =
                  Printf.sprintf "output/%s/%s_solved.svg" filename
                    Puzzle.(p.name)
                in
-               let path =
-                 Printf.sprintf "output/%s/%s.svg" filename Puzzle.(p.name)
-               in
                Render.render ~path:path_solved ~solution
                  (new Render.Style.style)
-                 p;
-               Render.render ~path ~debug:true (new Render.Style.style) p))
+                 p))
       !input_files
   with e -> Trax.wrap_with_stack_trace e |> Trax.print stderr
