@@ -78,13 +78,11 @@ let ( ++ ) assertions assertion = List.cons assertion assertions
 
 let make_context puzzle =
   let junctions =
-    CoordMap.fold
-      (fun (x, y) b ->
-        if b then
-          let name = Printf.sprintf "path_(%i,%i)" x y in
-          PosVar.add (x, y) (PathVariable name)
-        else Fun.id)
-      puzzle.paths PosVar.empty
+    CoordSet.fold
+      (fun (x, y) ->
+        let name = Printf.sprintf "path_(%i,%i)" x y in
+        PosVar.add (x, y) (PathVariable name))
+      puzzle.points PosVar.empty
   and activated =
     CoordMap.fold
       (fun (x, y) _ ->
@@ -105,7 +103,7 @@ let from_puzzle context puzzle =
   let neighbors_of pos =
     let neighbor_pos = puzzle.edges |> Edges.filter (Edge.is_adjacent pos) |> Edges.elements |> List.filter_map (fun e ->
       let pos' = Edge.other_end e pos in
-      if CoordMap.find pos' puzzle.paths then Some pos' else None
+      if CoordSet.mem pos' puzzle.points then Some pos' else None
       )
   in List.map (fun pos -> pos, PosVar.find pos context.junctions) neighbor_pos
   in
