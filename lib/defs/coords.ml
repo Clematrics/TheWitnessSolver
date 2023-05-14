@@ -24,3 +24,5 @@ let to_string = function
   | 1, -1 -> "to its top right corner"
   | -1, 1 -> "to its bottom left corner"
   | x, y -> Printf.sprintf "at relative coords (%i, %i)" x y
+
+let pp fmt (x, y) = Format.fprintf fmt "%i, %i" x y

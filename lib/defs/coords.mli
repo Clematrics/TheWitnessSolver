@@ -13,3 +13,5 @@ val corners : t list
 
 val to_float : t -> float * float
 val to_string : t -> string
+
+val pp : Format.formatter -> t -> unit
