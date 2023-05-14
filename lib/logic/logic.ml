@@ -75,6 +75,7 @@ type context = {
 }
 
 let ( ++ ) assertions assertion = List.cons assertion assertions
+let ( ++? ) assertions = function Some assertion -> List.cons assertion assertions | None -> assertions
 
 let make_context puzzle =
   let junctions =
@@ -145,6 +146,12 @@ let from_puzzle context puzzle =
         and activated = PosVar.find pos context.activated in
         Bool activated ==> (KindOf(Var junction) =!= (NoPath)) KindTy
       )
+    ++?
+      if PropertySet.(inter puzzle.properties symmetry_properties |> is_empty) then
+        Some (Forall (PathVarTy, PosVar.bindings context.junctions |> List.map snd, 
+          fun var _ -> (KindOf (Var var) =!= Symmetric) KindTy))
+      else
+        None
   in
   assertions
 (* var chemin_passe_par_arête = liste d'arêtes entre paths et arêtes entre paths et start|end : chemin *)
