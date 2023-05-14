@@ -113,6 +113,9 @@ let from_puzzle context puzzle =
     Exists
       ( CoordTy, PosSet.elements context.starts,
         fun pos _ -> (Var (PosVar.find pos context.junctions) === (Path (Player, Int 0))) PathTy )
+    ++ (* A path that is not a start cannot have an index of 0 *)
+    Forall (PathVarTy, context.junctions |> PosVar.filter (fun pos _ -> not (PosSet.mem pos context.starts)) |> PosVar.bindings |> List.map snd,
+        fun var _ -> (KindOf (Var var) =!= NoPath) KindTy ==> (IndexOf (Var var) =!= Int 0) IntTy)
     ++ (* There exists an end which is of kind Player *)
     Exists
       ( CoordTy, PosSet.elements context.ends,
@@ -336,7 +339,7 @@ let solve puzzle =
   let z3_assertions = List.map (assertions_to_z3 ctxt types z3_vars) assertions in
   let solver = Z3.Solver.mk_simple_solver ctxt in
   (* List.iter (fun e -> Printf.printf "%s\n" (Z3.Expr.to_string e)) z3_assertions; *)
-  let (junc_val, _act_val) =
+  let (junc_val, act_val) =
     match Z3.Solver.check solver z3_assertions with
     | Z3.Solver.SATISFIABLE -> (
         match Z3.Solver.get_model solver with
@@ -363,6 +366,28 @@ let solve puzzle =
     | Z3.Solver.UNSATISFIABLE ->
         raise (Invalid_argument "Solver: Unsatisfiable")
   in
+  let pp_kind fmt = function
+    NoPath -> Format.fprintf fmt "NoPath"
+  | Player -> Format.fprintf fmt "Player"
+  | Symmetric -> Format.fprintf fmt "Symmetric"
+  | KindOf _ -> Format.fprintf fmt "KindOf ?Path?"
+  in
+  let pp_bool fmt = function
+  | true -> Format.fprintf fmt "true"
+  | false -> Format.fprintf fmt "false"
+  in
+  let pp_path fmt (kind, index) =
+    Format.fprintf fmt "%a : %i" pp_kind kind index
+  in
+  let rec pp_map pp_val fmt map =
+    match PosVar.min_binding_opt map with
+    None -> Format.fprintf fmt ""
+    | Some (pos, value) ->
+      Format.fprintf fmt "(%a): %a;@;%a" Coords.pp pos pp_val value (pp_map pp_val) (PosVar.remove pos map)
+  in
+  let out_file = open_out (Printf.sprintf "output/%s/%s.valuation" puzzle.file puzzle.name) in
+  let fmt = Format.formatter_of_out_channel out_file in
+  Format.fprintf fmt "Junctions:@\n@[<v 2>%a@]@\nActivated symbols:@\n@[<v 2>%a@]" (pp_map pp_path) junc_val (pp_map pp_bool) act_val;
   let path =
     let junc_bindings = PosVar.bindings junc_val |> List.map (fun (x, y) -> y, x) in
     let rec iter acc i =
@@ -372,62 +397,3 @@ let solve puzzle =
     in iter [] 0
   in
   path
-
-
-  (* let start =
-    None
-    |> Var.fold
-         (fun s b start ->
-           match start with
-           | None when b ->
-               starts
-               |> PosVar.filter (fun _ s' -> s' = PathVariable s)
-               |> PosVar.min_binding_opt |> Option.map fst
-           | _ -> start)
-         valuation
-    |> Option.get
-  in
-  let end_path =
-    None
-    |> Var.fold
-         (fun s b e ->
-           match e with
-           | None when b ->
-               ends
-               |> PosVar.filter (fun _ s' -> s' = PathVariable s)
-               |> PosVar.min_binding_opt |> Option.map fst
-           | _ -> e)
-         valuation
-    |> Option.get
-  in
-  let paths =
-    []
-    |> Var.fold
-         (fun s b paths ->
-           if b then
-             let edge_opt =
-               edges
-               |> EdgesVar.filter (fun _ s' -> s' = PathVariable s)
-               |> EdgesVar.min_binding_opt |> Option.map fst
-             in
-             match edge_opt with None -> paths | Some edge -> edge :: paths
-           else paths)
-         valuation
-    |> List.map Edge.get
-  in
-  let rec iter_solution points position = function
-    | [] ->
-        assert (position = end_path);
-        points
-    | paths -> (
-        let next_edge, paths =
-          List.partition (fun (a, b) -> a = position || b = position) paths
-        in
-        match next_edge with
-        | [ e ] ->
-            let next = if fst e = position then snd e else fst e in
-            iter_solution (next :: points) next paths
-        | _ -> assert false)
-  in
-  let solution = iter_solution [ start ] start paths in
-  solution *)
