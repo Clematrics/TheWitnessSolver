@@ -4,6 +4,7 @@ module CoordMap : Map.S with type key = Coords.t
 module IntMap : Map.S with type key = Int.t
 
 type t = {
+  file : string;
   name : string;
       (** The name of the puzzle. TODO: To replace with a full reference: file +
           name *)
@@ -58,4 +59,4 @@ type t = {
       y
     ]} *)
 
-val from_chn : in_channel -> t list Log.log_result
+val from_chn : ?filename:string -> in_channel -> t list Log.log_result

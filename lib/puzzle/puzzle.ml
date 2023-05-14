@@ -5,6 +5,7 @@ module CoordMap = Map.Make (Coords)
 module IntMap = Map.Make (Int)
 
 type t = {
+  file : string;
   name : string;
   properties : PropertySet.t;
   width : int;
@@ -93,12 +94,12 @@ let optimize puzzle =
     CoordSet.fold
       (fun pos ((edges, to_remove) as acc) ->
         let adjacents = edges |> Edges.filter (Edge.is_adjacent pos) in
-        if Edges.cardinal adjacents = 2 then
+        if Edges.cardinal adjacents = 2 && not (CoordMap.mem pos puzzle.starts) && not (CoordMap.mem pos puzzle.symbols) then
           let[@warning "-8"] [ e; e' ] = Edges.elements adjacents in
           if Edge.aligned e e' then (
-            Format.printf "Optimize %a and %a\n" Edge.pp e Edge.pp e';
+            (* Format.printf "Optimize %a and %a\n" Edge.pp e Edge.pp e'; *)
             let c, c' = (Edge.other_end e pos, Edge.other_end e' pos) in
-            Format.printf "Replaced by %a\n" Edge.pp (Edge.edge c c');
+            (* Format.printf "Replaced by %a\n" Edge.pp (Edge.edge c c'); *)
             let edges =
               edges |> Edges.remove e |> Edges.remove e'
               |> Edges.add (Edge.edge c c')
@@ -240,9 +241,10 @@ let validate ({ properties; width; height; ends; starts; _ } as puzzle) =
          | Error _ -> assert false);
   puzzle
 
-let from_raw ({ name; properties; width; height; paths; symbols } : Raw.t) =
+let from_raw file ({ name; properties; width; height; paths; symbols } : Raw.t) =
   let%log puzzle =
     {
+      file;
       name;
       properties;
       width;
@@ -256,15 +258,16 @@ let from_raw ({ name; properties; width; height; paths; symbols } : Raw.t) =
       cells = CoordSet.empty;
       symbols = CoordMap.empty;
     }
-    |> make_paths paths |> optimize |> make_cells |> add_symbols symbols
+    |> make_paths paths |> make_cells |> add_symbols symbols
+    |> optimize
     |> validate
   in
   return puzzle
 
-let from_chn chn =
+let from_chn ?(filename="") chn =
   let+ raw_puzzles = Raw.from_chn chn in
   raw_puzzles
-  |> List.map (fun raw -> (from_raw raw, raw))
+  |> List.map (fun raw -> (from_raw filename raw, raw))
   |> List.map (fun (log, raw) ->
          let ctxt = Printf.sprintf "In puzzle %s:" Raw.(raw.name) in
          match log with
