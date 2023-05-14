@@ -14,20 +14,23 @@ type t = {
   height : int;
       (** The height of the puzzle. All elements are guaranted to have their y
           coordinate in [0, height - 1] *)
-  paths : bool CoordMap.t;
+  paths_ : bool CoordMap.t;
       (** A (coordinates -> boolean) map describing where path intersections are
           and if they are usable. Be careful, if a coordinate is in [paths] and
           mapped to false, it means that their IS a path at this coordinate, but
           it is not usable by the player or by any symmetric path (for instance
           when there is a PathHorizontal:Cut). It is encoded this way to
-          simplify cell detections.
-          Paths include starts and ends.
+          simplify cell detections. Paths include starts and ends.
 
           TODO: is it really necessary? Yes if we eventually want to guarantee
           that both sides of edges are existing paths.
 
           Connections between paths are not described by this field, but by
           {!field:edges}. *)
+  points : CoordSet.t;  (** The set of junctions where a path can go through *)
+  cuts : CoordSet.t;
+      (** The set of points cutting a path, typically at the middle of
+          PathVertical:Cut for instance. *)
   edges : Edges.t;
       (** The set of non-directional edges linking two paths together. An edge
           can exist in this set even if it leads to a dead end. For instance, a

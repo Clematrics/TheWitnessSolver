@@ -9,7 +9,9 @@ type t = {
   properties : PropertySet.t;
   width : int;
   height : int;
-  paths : bool CoordMap.t;
+  paths_ : bool CoordMap.t;
+  points : CoordSet.t;
+  cuts : CoordSet.t;
   edges : Edges.t;
   starts : bool CoordMap.t;
   ends : Coords.t IntMap.t;
@@ -61,7 +63,7 @@ let make_paths paths puzzle =
         error Msg.similar_ends;
         Some pos
   in
-  let paths, starts, ends =
+  let paths_, starts, ends =
     fold
       (fun pos (paths, starts, ends) -> function
         | Some (Start b) ->
@@ -74,9 +76,41 @@ let make_paths paths puzzle =
         | Some (Meet b) | Some (PathVertical b) | Some (PathHorizontal b) ->
             (CoordMap.add pos b paths, starts, ends)
         | None -> (paths, starts, ends))
-      (puzzle.paths, puzzle.starts, puzzle.ends)
+      (puzzle.paths_, puzzle.starts, puzzle.ends)
   in
-  { puzzle with edges; paths; starts; ends }
+  let points, cuts =
+    CoordMap.fold
+      (fun pos b (points, cuts) ->
+        if b then (CoordSet.add pos points, cuts)
+        else (points, CoordSet.add pos cuts))
+      paths_
+      (CoordSet.empty, CoordSet.empty)
+  in
+  { puzzle with points; cuts; edges; paths_; starts; ends }
+
+let optimize puzzle =
+  let edges, to_remove =
+    CoordSet.fold
+      (fun pos ((edges, to_remove) as acc) ->
+        let adjacents = edges |> Edges.filter (Edge.is_adjacent pos) in
+        if Edges.cardinal adjacents = 2 then
+          let[@warning "-8"] [ e; e' ] = Edges.elements adjacents in
+          if Edge.aligned e e' then (
+            Format.printf "Optimize %a and %a\n" Edge.pp e Edge.pp e';
+            let c, c' = (Edge.other_end e pos, Edge.other_end e' pos) in
+            Format.printf "Replaced by %a\n" Edge.pp (Edge.edge c c');
+            let edges =
+              edges |> Edges.remove e |> Edges.remove e'
+              |> Edges.add (Edge.edge c c')
+            and to_remove = to_remove |> CoordSet.add pos in
+            (edges, to_remove))
+          else acc
+        else acc)
+      puzzle.points
+      (puzzle.edges, CoordSet.empty)
+  in
+  let points = CoordSet.diff puzzle.points to_remove in
+  { puzzle with points; edges }
 
 (* finding cells : take all corners (path | start) and look for the following pattern
     P P P
@@ -89,7 +123,7 @@ let make_paths paths puzzle =
 *)
 let make_cells puzzle =
   let cells =
-    let get coords = CoordMap.find_opt coords puzzle.paths in
+    let get coords = CoordMap.find_opt coords puzzle.paths_ in
     CoordMap.fold
       (fun coords _ board ->
         let open Coords in
@@ -101,7 +135,7 @@ let make_cells puzzle =
         if List.for_all Option.is_some borders && Option.is_none cell then
           CoordSet.add cell_pos board
         else board)
-      puzzle.paths CoordSet.empty
+      puzzle.paths_ CoordSet.empty
   in
   { puzzle with cells }
 
@@ -213,14 +247,17 @@ let from_raw ({ name; properties; width; height; paths; symbols } : Raw.t) =
       properties;
       width;
       height;
-      paths = CoordMap.empty;
+      paths_ = CoordMap.empty;
+      points = CoordSet.empty;
+      cuts = CoordSet.empty;
       edges = Edges.empty;
       starts = CoordMap.empty;
       ends = IntMap.empty;
       cells = CoordSet.empty;
       symbols = CoordMap.empty;
     }
-    |> make_paths paths |> make_cells |> add_symbols symbols |> validate
+    |> make_paths paths |> optimize |> make_cells |> add_symbols symbols
+    |> validate
   in
   return puzzle
 
