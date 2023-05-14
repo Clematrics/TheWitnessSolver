@@ -241,23 +241,17 @@ let pp_list pp fmt l =
   in
   Format.fprintf fmt "[@[ %a @]]" inner l
 
-let pp_coords fmt (x, y) = Format.fprintf fmt "%i, %i" x y
-
-let pp_edge fmt e =
-  let p, p' = Edge.get e in
-  Format.fprintf fmt "(%a -> %a)" pp_coords p pp_coords p'
-
 (* TODO: bad junction when end is perpendicular to a single path *)
-let paths_layer style { paths; edges; ends; _ } =
+let paths_layer style { points; cuts; edges; ends; _ } =
   let arity_map =
     CoordMap.empty
     |> (* Adding junctions with their arity *)
-    CoordMap.fold
-      (fun pos _ ->
+    CoordSet.fold
+      (fun pos ->
         edges
         |> Edges.filter (Edge.is_adjacent pos)
         |> Edges.cardinal |> CoordMap.add pos)
-      paths
+      (CoordSet.union points cuts)
   in
   (* decrease arity of points adjacent to the edge given *)
   let decrease_arity edge map =
@@ -276,34 +270,42 @@ let paths_layer style { paths; edges; ends; _ } =
     let hole_size = (cell_size -. path_width) /. 3. in
     let rec iter_points ?(is_first = false) acc = function
       | [] -> [ acc ]
-      | c :: c' :: l when CoordMap.find c paths = false ->
+      | c :: c' :: l when CoordSet.mem c cuts ->
           (* Format.printf "Found a cut at %a\n" pp_coords c; *)
           let p, p' = (v2 c, v2 c') in
           let dir = V2.(p' - p) in
-          acc :: iter_points [ V2.(p + (hole_size /. 2. * dir)) ] (c' :: l)
-      | c :: c' :: l when CoordMap.find c' paths = false ->
+          acc
+          :: iter_points
+               [ V2.(p + (hole_size /. 2. * dir / norm dir)) ]
+               (c' :: l)
+      | c :: c' :: l when CoordSet.mem c' cuts ->
           (* Format.printf "Found a cut at %a\n" pp_coords c'; *)
           let p, p' = (v2 c, v2 c') in
           let dir = V2.(p' - p) in
-          (V2.(p' - (hole_size /. 2. * dir)) :: p :: acc)
+          (V2.(p' - (hole_size /. 2. * dir / norm dir)) :: p :: acc)
           :: iter_points [] (c' :: l)
       | c :: c' :: l when IntMap.exists (fun _ -> ( = ) c) ends ->
           let p, p' = (v2 c, v2 c') in
           let dir = V2.(p' - p) in
-          iter_points [ V2.(p' - (cell_size /. 4. * dir)) ] (c' :: l)
+          iter_points [ V2.(p + (cell_size /. 2. * dir / norm dir)) ] (c' :: l)
       | c :: c' :: l when IntMap.exists (fun _ -> ( = ) c') ends ->
           let p, p' = (v2 c, v2 c') in
           let dir = V2.(p' - p) in
-          (V2.(p + (cell_size /. 4. * dir)) :: p :: acc) :: iter_points [] l
+          (V2.(p' - (cell_size /. 2. * dir / norm dir)) :: p :: acc)
+          :: iter_points [] l
       | c :: c' :: l when is_first ->
           let p, p' = (v2 c, v2 c') in
           let dir = V2.(p' - p) in
-          iter_points (V2.(p - (path_width /. cell_size * dir)) :: acc) (c' :: l)
+          iter_points
+            (V2.(p - (path_width /. cell_size * dir / norm dir)) :: acc)
+            (c' :: l)
       | [ c; c' ]
       (* c' is not an end nor a cut path because of the patterns above *) ->
           let p, p' = (v2 c, v2 c') in
           let dir = V2.(p' - p) in
-          iter_points (V2.(p' + (path_width /. cell_size * dir)) :: acc) []
+          iter_points
+            (V2.(p' + (path_width /. cell_size * dir / norm dir)) :: p :: acc)
+            []
       | c :: l -> iter_points (v2 c :: acc) l
     in
     complete_path
@@ -316,7 +318,7 @@ let paths_layer style { paths; edges; ends; _ } =
            | [] -> path)
          path
   and iter_from_path ({ completed; last_edge; _ } as path) arity_map edges =
-    (* Format.printf "Go through edge %a to %a\n" pp_edge last_edge pp_coords
+    (* Format.printf "Go through edge %a to %a\n" Edge.pp last_edge Coords.pp
        (List.hd completed); *)
     (* try to find the next edge in the same direction as last_edge *)
     (* possible edges to cross *)
@@ -326,14 +328,14 @@ let paths_layer style { paths; edges; ends; _ } =
     (* edge opposite to the last one crossed, if in candidates *)
     let opposite_edge =
       candidate_edges
-      |> Edges.filter (fun e -> Edge.direction e = Edge.direction last_edge)
+      |> Edges.filter (fun e -> Edge.aligned e last_edge)
       |> Edges.min_elt_opt
     in
     (* select the opposite edge, or a candidate edge otherwise *)
     let edge = orr opposite_edge (Edges.min_elt_opt candidate_edges) in
     match edge with
     | Some edge ->
-        (* Format.printf "Found edge %a to continue\n" pp_edge edge; *)
+        (* Format.printf "Found edge %a to continue\n" Edge.pp edge; *)
         let next_point = Edge.other_end edge (List.hd completed) in
         (if CoordMap.mem next_point arity_map then
            iter_from_path
@@ -420,15 +422,12 @@ let end_layer style { ends; edges; _ } =
         |> Edges.choose
         |> Fun.flip Edge.other_end pos
       in
-      let dx, dy = Coords.(pos' +: ( -: ) pos) in
+      let di, dj = Coords.(pos' +: ( -: ) pos) in
+      let dir = V2.of_tuple (float_of_int di, float_of_int dj) in
       let path =
-        [
-          ( cell_size /. 2. *. float_of_int dx,
-            cell_size /. 2. *. float_of_int dy );
-          ( cell_size /. 4. *. float_of_int dx,
-            cell_size /. 4. *. float_of_int dy );
-        ]
-        |> points_from_coords |> path_from_points
+        V2.
+          [ cell_size /. 2. * dir / norm dir; cell_size /. 4. * dir / norm dir ]
+        |> path_from_points
       in
       let area = `O { P.o with width = path_width; cap = `Round } in
       I.const style#navigation_color
@@ -449,10 +448,11 @@ let symbol_layer style symbols =
 let solution_layer style sol =
   match List.rev_map v2 sol with
   | start :: _ as sol ->
-      (* a solution should always has at least two points *)
+      (* a solution should always have at least two points *)
       let[@warning "-8"] (p :: p' :: sol) = List.rev sol in
       (* changing the last point to adjust it to the end *)
-      let sol = V2.(p' + (0.5 * (p - p'))) :: p' :: sol in
+      let dir = V2.(p' - p) in
+      let sol = V2.(p + (cell_size /. 4. * dir / norm dir)) :: p' :: sol in
       let path = sol |> path_from_points in
       let circ = P.empty |> P.circle start path_width in
       let base = I.const style#blue_path_color in
@@ -462,21 +462,22 @@ let solution_layer style sol =
       base |> I.cut ~area path |> I.blend (base |> I.cut circ)
   | [] -> I.void
 
-let debug_layer style debug { cells ; _ } =
+let debug_layer style debug { cells; _ } =
   if debug then
     let cells_path =
-    P.empty |>
-    CoordSet.fold (fun pos ->
-      let p = v2 pos in
-      let dx = style#debug_cell_size /. 2. *. cell_size in
-      let dv = V2.v dx dx in
-      P.rect V2.(Box2.of_pts (p - dv) (p + dv))
-    ) cells in
+      P.empty
+      |> CoordSet.fold
+           (fun pos ->
+             let p = v2 pos in
+             let dx = style#debug_cell_size /. 2. *. cell_size in
+             let dv = V2.v dx dx in
+             P.rect V2.(Box2.of_pts (p - dv) (p + dv)))
+           cells
+    in
     I.cut cells_path (I.const style#debug_cell_color)
-  else
-    I.void
+  else I.void
 
-let render ?(path = "output/") ?(solution = []) ?(debug=false) style puzzle =
+let render ?(path = "output/") ?(solution = []) ?(debug = false) style puzzle =
   (* Printf.printf "Rendering puzzle %s\n" puzzle.name; *)
   (* taille à revoir *)
   let width, height =
