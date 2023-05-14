@@ -1,6 +1,5 @@
 (* module type MAP = Map.S with type key = Char.t *)
-module Map = Map.Make(Char)
-
+module Map = Map.Make (Char)
 open Defs
 
 type t = (Path.t option * (Symbol.t * Color.t) option) Map.t

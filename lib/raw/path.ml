@@ -71,7 +71,9 @@ let get_connections pos zone =
            let ax, ay = offset +: (1, 1) in
            let p = zone.(ax).(ay) in
            let mutual_connection =
-             p |> Option.map accepted_connection |> Option.value ~default:[]
+             p
+             |> Option.map accepted_connection
+             |> Option.value ~default:[]
              |> List.mem (offset *: -1)
            in
            if (not opt) && not mutual_connection then

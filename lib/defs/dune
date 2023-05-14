@@ -1,4 +1,4 @@
 (library
  (name defs)
- (libraries )
+ (libraries)
  (modules_without_implementation color rotation))

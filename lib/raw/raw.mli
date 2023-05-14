@@ -4,8 +4,8 @@ open Log
 type t = {
   name : string;
   properties : PropertySet.t;
-  width: int;
-  height: int;
+  width : int;
+  height : int;
   paths : Path.t option array array;
   symbols : (Symbol.t * Color.t) option array array;
 }

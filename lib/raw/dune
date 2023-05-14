@@ -1,6 +1,7 @@
 (library
  (name raw)
- (preprocess (pps log_ppx))
+ (preprocess
+  (pps log_ppx))
  (libraries log defs msg)
  (modules_without_implementation parserTypes))
 

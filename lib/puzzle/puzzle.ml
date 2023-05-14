@@ -94,9 +94,13 @@ let optimize puzzle =
     CoordSet.fold
       (fun pos ((edges, to_remove) as acc) ->
         let adjacents = edges |> Edges.filter (Edge.is_adjacent pos) in
-        if Edges.cardinal adjacents = 2 && not (CoordMap.mem pos puzzle.starts) && not (CoordMap.mem pos puzzle.symbols) then
+        if
+          Edges.cardinal adjacents = 2
+          && (not (CoordMap.mem pos puzzle.starts))
+          && not (CoordMap.mem pos puzzle.symbols)
+        then
           let[@warning "-8"] [ e; e' ] = Edges.elements adjacents in
-          if Edge.aligned e e' then (
+          if Edge.aligned e e' then
             (* Format.printf "Optimize %a and %a\n" Edge.pp e Edge.pp e'; *)
             let c, c' = (Edge.other_end e pos, Edge.other_end e' pos) in
             (* Format.printf "Replaced by %a\n" Edge.pp (Edge.edge c c'); *)
@@ -104,7 +108,7 @@ let optimize puzzle =
               edges |> Edges.remove e |> Edges.remove e'
               |> Edges.add (Edge.edge c c')
             and to_remove = to_remove |> CoordSet.add pos in
-            (edges, to_remove))
+            (edges, to_remove)
           else acc
         else acc)
       puzzle.points
@@ -241,7 +245,8 @@ let validate ({ properties; width; height; ends; starts; _ } as puzzle) =
          | Error _ -> assert false);
   puzzle
 
-let from_raw file ({ name; properties; width; height; paths; symbols } : Raw.t) =
+let from_raw file ({ name; properties; width; height; paths; symbols } : Raw.t)
+    =
   let%log puzzle =
     {
       file;
@@ -258,13 +263,12 @@ let from_raw file ({ name; properties; width; height; paths; symbols } : Raw.t) 
       cells = CoordSet.empty;
       symbols = CoordMap.empty;
     }
-    |> make_paths paths |> make_cells |> add_symbols symbols
-    |> optimize
+    |> make_paths paths |> make_cells |> add_symbols symbols |> optimize
     |> validate
   in
   return puzzle
 
-let from_chn ?(filename="") chn =
+let from_chn ?(filename = "") chn =
   let+ raw_puzzles = Raw.from_chn chn in
   raw_puzzles
   |> List.map (fun raw -> (from_raw filename raw, raw))

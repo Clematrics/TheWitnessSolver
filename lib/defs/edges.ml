@@ -1,1 +1,1 @@
-include Set.Make(Edge)
+include Set.Make (Edge)
