@@ -1,6 +1,6 @@
 open Defs
-module CoordSet : Set.S with type elt = Coords.t
-module CoordMap : Map.S with type key = Coords.t
+module CoordSet : Set.S with type elt = Coord.t
+module CoordMap : Map.S with type key = Coord.t
 module IntMap : Map.S with type key = Int.t
 
 type t = {
@@ -41,7 +41,7 @@ type t = {
       (** A (coordinates -> boolean) map of starts. If a coordinate is mapped to
           false, it means that this start is not usable by the player, either
           because it is blocked or visally obstructed. *)
-  ends : Coords.t IntMap.t;
+  ends : Coord.t IntMap.t;
       (** A partially bijective (identifier -> coordinates) map of ends *)
   cells : CoordSet.t;  (** The set of cells, characterised by their center *)
   symbols : (Symbol.t * Color.t) CoordMap.t;

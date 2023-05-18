@@ -1,6 +1,6 @@
 open Defs
 open Log
-open Coords
+open Coord
 
 type t =
   | Meet of bool
@@ -26,10 +26,10 @@ let select_connections pos path connections =
   match path with
   | End i -> (
       let adjacent =
-        List.filter (Fun.flip List.mem Coords.adjacent) connections
+        List.filter (Fun.flip List.mem Coord.adjacent) connections
         (* Look for a corner *)
       and corners =
-        List.filter (Fun.flip List.mem Coords.corners) connections
+        List.filter (Fun.flip List.mem Coord.corners) connections
       in
       match (List.length adjacent, List.length corners) with
       | 0, 0 -> (* empty connections are checked later *) []
@@ -41,18 +41,18 @@ let select_connections pos path connections =
   | _ -> connections
 
 let path_connection = function
-  | Meet _ -> Coords.adjacent
-  | Start _ -> Coords.adjacent
-  | End _ -> Coords.all
-  | PathHorizontal _ -> Coords.horizontal
-  | PathVertical _ -> Coords.vertical
+  | Meet _ -> Coord.adjacent
+  | Start _ -> Coord.adjacent
+  | End _ -> Coord.all
+  | PathHorizontal _ -> Coord.horizontal
+  | PathVertical _ -> Coord.vertical
 
 let accepted_connection = function
-  | Meet _ -> Coords.all
-  | Start _ -> Coords.adjacent
-  | End _ -> Coords.all
-  | PathHorizontal _ -> Coords.horizontal
-  | PathVertical _ -> Coords.vertical
+  | Meet _ -> Coord.all
+  | Start _ -> Coord.adjacent
+  | End _ -> Coord.all
+  | PathHorizontal _ -> Coord.horizontal
+  | PathVertical _ -> Coord.vertical
 
 (* Return false if all the possible connections must be satisfied.
    Return true if connections are optional. *)
@@ -79,7 +79,7 @@ let get_connections pos zone =
            if (not opt) && not mutual_connection then
              error
                (Msg.missing_connection pos (to_string path)
-                  (Coords.to_string offset));
+                  (Coord.to_string offset));
            mutual_connection)
     |> select_connections pos path
   in

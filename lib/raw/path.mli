@@ -21,7 +21,7 @@ type t =
 
 open Defs
 
-val get_connections : Coords.t -> t option array array -> Coords.t list
+val get_connections : Coord.t -> t option array array -> Coord.t list
 (** [get_connections pos arr] assumes that arr is a 3x3 matrix containing the
     portion of the board restrained around the cell we want the connections.
     [pos] is necessary to give the good conetxt message for potential errors.

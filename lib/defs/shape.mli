@@ -14,4 +14,4 @@ type t =
   | Diagonal2
   | Custom of bool list list
 
-val shape : t -> Coords.t list
+val shape : t -> Coord.t list

@@ -20,7 +20,7 @@ let of_color =
 let path_width = 0.5
 let cell_size = 2.
 let cell_inner = cell_size -. path_width
-let v2 p = p |> Coords.to_float |> V2.of_tuple
+let v2 p = p |> Coord.to_float |> V2.of_tuple
 
 let path_from_points ?(rel = false) = function
   | [] -> P.empty
@@ -45,7 +45,7 @@ let points_from_coords = List.map V2.of_tuple
          if List.length elt.connected_paths = 2 then
            let x, y =
              List.fold_left
-               (fun o -> o |> Coords.( +: ))
+               (fun o -> o |> Coord.( +: ))
                (0, 0) elt.connected_paths
            in
            let c =
@@ -57,7 +57,7 @@ let points_from_coords = List.map V2.of_tuple
        let img = if b then img else I.void in
        List.fold_left
          (fun img o ->
-           match CoordMap.find_opt Coords.(pos +: o) board with
+           match CoordMap.find_opt Coord.(pos +: o) board with
            | Some { path = Some (Path _); _ } | Some { path = Some (Start _); _ }
              ->
                let cell_half_inner = (cell_size /. 2.) -. path_width in
@@ -220,14 +220,14 @@ let render_image path size view img =
 
 type incomplete_path = {
   start_by_path : bool;
-  completed : Coords.t list;
+  completed : Coord.t list;
       (** Accumulator of all points crossed on the path. It is garuanteed to
           have at least two elements at creation *)
   last_edge : Edge.t;
 }
 
 type completed_path = {
-  completed : Coords.t list;
+  completed : Coord.t list;
   start_by_path : bool;
   end_by_path : bool;
 }
@@ -318,7 +318,7 @@ let paths_layer style { points; cuts; edges; ends; _ } =
            | [] -> path)
          path
   and iter_from_path ({ completed; last_edge; _ } as path) arity_map edges =
-    (* Format.printf "Go through edge %a to %a\n" Edge.pp last_edge Coords.pp
+    (* Format.printf "Go through edge %a to %a\n" Edge.pp last_edge Coord.pp
        (List.hd completed); *)
     (* try to find the next edge in the same direction as last_edge *)
     (* possible edges to cross *)
@@ -422,7 +422,7 @@ let end_layer style { ends; edges; _ } =
         |> Edges.choose
         |> Fun.flip Edge.other_end pos
       in
-      let di, dj = Coords.(pos' +: ( -: ) pos) in
+      let di, dj = Coord.(pos' +: ( -: ) pos) in
       let dir = V2.of_tuple (float_of_int di, float_of_int dj) in
       let path =
         V2.

@@ -1,7 +1,7 @@
 open Defs
 open Log
-module CoordSet = Set.Make (Coords)
-module CoordMap = Map.Make (Coords)
+module CoordSet = Set.Make (Coord)
+module CoordMap = Map.Make (Coord)
 module IntMap = Map.Make (Int)
 
 type t = {
@@ -15,7 +15,7 @@ type t = {
   cuts : CoordSet.t;
   edges : Edges.t;
   starts : bool CoordMap.t;
-  ends : Coords.t IntMap.t;
+  ends : Coord.t IntMap.t;
   cells : CoordSet.t;
   symbols : (Symbol.t * Color.t) CoordMap.t;
 }
@@ -33,7 +33,7 @@ let make_fold width height arr f init =
   !r
 
 let make_paths paths puzzle =
-  let open Coords in
+  let open Coord in
   let get = make_get puzzle.width puzzle.height paths in
   let fold (type a) f (i : a) =
     make_fold puzzle.width puzzle.height paths f i
@@ -46,7 +46,7 @@ let make_paths paths puzzle =
             let around = Array.make_matrix 3 3 (Some raw_path) in
             List.iter
               (fun c -> around.(fst c + 1).(snd c + 1) <- get (c +: pos))
-              Coords.all;
+              Coord.all;
             let connected_paths = Raw.Path.get_connections pos around in
             if connected_paths = [] then
               error (Msg.no_connection pos (Raw.Path.to_string raw_path));
@@ -131,11 +131,11 @@ let make_cells puzzle =
     let get coords = CoordMap.find_opt coords puzzle.paths_ in
     CoordMap.fold
       (fun coords _ board ->
-        let open Coords in
+        let open Coord in
         let cell_pos = coords +: (1, 1) in
         let cell = get cell_pos in
         let borders =
-          List.map (fun offset -> get (cell_pos +: offset)) Coords.all
+          List.map (fun offset -> get (cell_pos +: offset)) Coord.all
         in
         if List.for_all Option.is_some borders && Option.is_none cell then
           CoordSet.add cell_pos board

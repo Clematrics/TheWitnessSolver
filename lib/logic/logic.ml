@@ -12,10 +12,10 @@ type _ var =
 
 (* Quantifier types *)
 type _ quty = ..
-type _ quty += CoordTy : Coords.t quty
+type _ quty += CoordTy : Coord.t quty
 type _ quty += BoolVarTy : bool var quty
 type _ quty += PathVarTy : path var quty
-type _ quty += CoordsPathVarTy : (Coords.t * path var) quty
+type _ quty += CoordPathVarTy : (Coord.t * path var) quty
 
 type _ expr =
   (* Path kinds *)
@@ -155,12 +155,12 @@ let from_puzzle context puzzle =
     ++ (* All junctions of kind Player or Symmetric must have a predecessor
           in their neighboring junctions, except if their index is 0 *)
     Forall
-      ( CoordsPathVarTy,
+      ( CoordPathVarTy,
         PosVar.bindings context.junctions,
         fun (junc_pos, junc) _ ->
           (IndexOf (Var junc) =!= Int 0) IntTy
           ==> Exists
-                ( CoordsPathVarTy,
+                ( CoordPathVarTy,
                   neighbors_of junc_pos,
                   fun (_, junc') _ ->
                     (KindOf (Var junc) === KindOf (Var junc')) KindTy
@@ -470,7 +470,7 @@ let solve puzzle =
     match PosVar.min_binding_opt map with
     | None -> Format.fprintf fmt ""
     | Some (pos, value) ->
-        Format.fprintf fmt "(%a): %a;@;%a" Coords.pp pos pp_val value
+        Format.fprintf fmt "(%a): %a;@;%a" Coord.pp pos pp_val value
           (pp_map pp_val) (PosVar.remove pos map)
   in
   let out_file =
