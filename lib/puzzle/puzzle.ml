@@ -11,63 +11,38 @@ type t = {
   height : int;
   graph : Graph.t;
   cuts_graph : Graph.t;
-  (* paths_ : bool CoordMap.t;
-     points : CoordSet.t;
-     edges : Edges.t; *)
-  (* cuts : CoordSet.t; *)
   starts : bool CoordMap.t;
   ends : Coord.t IntMap.t;
   cells : CoordSet.t;
   symbols : (Symbol.t * Color.t) CoordMap.t;
 }
 
+type puzzle_base = {
+  file : string;
+  name : string;
+  properties : PropertySet.t;
+  width : int;
+  height : int;
+}
+
+type puzzle_graphs = {
+  graph : Graph.t;
+  cuts_graph : Graph.t;
+  starts : bool CoordMap.t;
+  ends : Coord.t IntMap.t;
+}
+
+type puzzle_cells = { cells : CoordSet.t }
+type puzzle_symbs = { symbols : (Symbol.t * Color.t) CoordMap.t }
+
 type _ under_construction =
-  | Stage1 : {
-      file : string;
-      name : string;
-      properties : PropertySet.t;
-      width : int;
-      height : int;
-    }
-      -> [ `Stage1 ] under_construction
-  | Stage2 : {
-      file : string;
-      name : string;
-      properties : PropertySet.t;
-      width : int;
-      height : int;
-      graph : Graph.t;
-      cuts_graph : Graph.t;
-      starts : bool CoordMap.t;
-      ends : Coord.t IntMap.t;
-    }
-      -> [ `Stage2 ] under_construction
-  | Stage3 : {
-      file : string;
-      name : string;
-      properties : PropertySet.t;
-      width : int;
-      height : int;
-      graph : Graph.t;
-      cuts_graph : Graph.t;
-      starts : bool CoordMap.t;
-      ends : Coord.t IntMap.t;
-      cells : CoordSet.t;
-    }
+  | Stage1 : puzzle_base -> [ `Stage1 ] under_construction
+  | Stage2 : puzzle_base * puzzle_graphs -> [ `Stage2 ] under_construction
+  | Stage3 :
+      puzzle_base * puzzle_graphs * puzzle_cells
       -> [ `Stage3 ] under_construction
-  | Stage4 : {
-      file : string;
-      name : string;
-      properties : PropertySet.t;
-      width : int;
-      height : int;
-      graph : Graph.t;
-      cuts_graph : Graph.t;
-      starts : bool CoordMap.t;
-      ends : Coord.t IntMap.t;
-      cells : CoordSet.t;
-      symbols : (Symbol.t * Color.t) CoordMap.t;
-    }
+  | Stage4 :
+      puzzle_base * puzzle_graphs * puzzle_cells * puzzle_symbs
       -> [ `Stage4 ] under_construction
 
 let make_get width height arr (x, y) =
@@ -82,7 +57,7 @@ let make_fold width height arr f init =
   done;
   !r
 
-let make_paths paths (Stage1 { file; name; properties; width; height }) =
+let make_paths paths (Stage1 ({ width; height; _ } as base)) =
   let open Coord in
   let get = make_get width height paths in
   let fold (type a) f (i : a) = make_fold width height paths f i in
@@ -100,20 +75,20 @@ let make_paths paths (Stage1 { file; name; properties; width; height }) =
     in
     new_edges
   in
-  let convert_raw_path pos (Stage2 puzzle) raw_path =
+  let convert_raw_path pos graphs raw_path =
     let new_edges = make_edges pos raw_path in
     let add graph = graph |> Graph.add_edges new_edges |> Graph.add_point pos in
     let graph, cuts_graph =
       match raw_path with
       | Start _ | End _ | Meet true | PathHorizontal true | PathVertical true ->
-          (add puzzle.graph, puzzle.cuts_graph)
+          (add graphs.graph, graphs.cuts_graph)
       | Meet false | PathHorizontal false | PathVertical false ->
-          (puzzle.graph, add puzzle.cuts_graph)
+          (graphs.graph, add graphs.cuts_graph)
     in
     let starts =
       match raw_path with
-      | Start b -> CoordMap.add pos b puzzle.starts
-      | _ -> puzzle.starts
+      | Start b -> CoordMap.add pos b graphs.starts
+      | _ -> graphs.starts
     in
     let ends =
       match raw_path with
@@ -124,36 +99,33 @@ let make_paths paths (Stage1 { file; name; properties; width; height }) =
               | Some _ ->
                   error Msg.similar_ends;
                   Some pos)
-            puzzle.ends
-      | _ -> puzzle.ends
+            graphs.ends
+      | _ -> graphs.ends
     in
-    Stage2 { puzzle with graph; cuts_graph; starts; ends }
+    { graph; cuts_graph; starts; ends }
   in
-  fold
-    (fun pos puzzle ->
-      Option.fold ~none:puzzle ~some:(convert_raw_path pos puzzle))
-    (Stage2
-       {
-         file;
-         name;
-         properties;
-         width;
-         height;
-         graph = Graph.empty;
-         cuts_graph = Graph.empty;
-         starts = CoordMap.empty;
-         ends = IntMap.empty;
-       })
+  let graphs =
+    fold
+      (fun pos puzzle ->
+        Option.fold ~none:puzzle ~some:(convert_raw_path pos puzzle))
+      {
+        graph = Graph.empty;
+        cuts_graph = Graph.empty;
+        starts = CoordMap.empty;
+        ends = IntMap.empty;
+      }
+  in
+  Stage2 (base, graphs)
 
-let optimize (Stage4 puzzle) =
+let optimize (Stage4 (base, graphs, cells, symbols)) =
   let graph =
     Graph.fold_points
       (fun pos graph ->
         let adjacents = Graph.adjacent_edges pos graph in
         if
           Edges.cardinal adjacents = 2
-          && (not (CoordMap.mem pos puzzle.starts))
-          && not (CoordMap.mem pos puzzle.symbols)
+          && (not (CoordMap.mem pos graphs.starts))
+          && not (CoordMap.mem pos symbols.symbols)
         then
           let[@warning "-8"] [ e; e' ] = Edges.elements adjacents in
           if Edge.aligned e e' then
@@ -163,9 +135,9 @@ let optimize (Stage4 puzzle) =
             graph |> Graph.remove pos |> Graph.add_edge (Edge.edge c c')
           else graph
         else graph)
-      puzzle.graph puzzle.graph
+      graphs.graph graphs.graph
   in
-  Stage4 { puzzle with graph }
+  Stage4 (base, { graphs with graph }, cells, symbols)
 
 (* finding cells : take all corners (path | start) and look for the following pattern
     P P P
@@ -176,12 +148,9 @@ let optimize (Stage4 puzzle) =
      / (corner) stands for None
    It is only necessary to check for a cell on the bottom right)
 *)
-let make_cells
-    (Stage2
-      { file; name; properties; width; height; graph; cuts_graph; starts; ends })
-    =
+let make_cells (Stage2 (base, graphs)) =
   let cells =
-    let mem coords = CoordSet.mem coords (Graph.points graph) in
+    let mem coords = CoordSet.mem coords (Graph.points graphs.graph) in
     CoordSet.fold
       (fun coords cells ->
         let open Coord in
@@ -191,37 +160,13 @@ let make_cells
           && not (mem cell_pos)
         then CoordSet.add cell_pos cells
         else cells)
-      (Graph.points graph) CoordSet.empty
+      (Graph.points graphs.graph)
+      CoordSet.empty
   in
-  Stage3
-    {
-      file;
-      name;
-      properties;
-      width;
-      height;
-      graph;
-      cuts_graph;
-      starts;
-      ends;
-      cells;
-    }
+  Stage3 (base, graphs, { cells })
 
-let add_symbols symbols
-    (Stage3
-      {
-        file;
-        name;
-        properties;
-        width;
-        height;
-        graph;
-        cuts_graph;
-        starts;
-        ends;
-        cells;
-      }) =
-  let fold = make_fold width height symbols in
+let add_symbols symbols (Stage3 (base, graphs, cells)) =
+  let fold = make_fold base.width base.height symbols in
   let symbols =
     fold
       (fun pos symbols -> function
@@ -229,20 +174,7 @@ let add_symbols symbols
         | Some sc -> CoordMap.add pos sc symbols)
       CoordMap.empty
   in
-  Stage4
-    {
-      file;
-      name;
-      properties;
-      width;
-      height;
-      graph;
-      cuts_graph;
-      starts;
-      ends;
-      cells;
-      symbols;
-    }
+  Stage4 (base, graphs, cells, { symbols })
 
 (* TODO: check symbols are at a good position *)
 let validate ({ properties; width; height; ends; starts; _ } as puzzle) =
@@ -336,19 +268,10 @@ let validate ({ properties; width; height; ends; starts; _ } as puzzle) =
 
 let pack
     (Stage4
-      {
-        file;
-        name;
-        properties;
-        width;
-        height;
-        graph;
-        cuts_graph;
-        starts;
-        ends;
-        cells;
-        symbols;
-      }) : t =
+      ( { file; name; properties; width; height },
+        { graph; cuts_graph; starts; ends },
+        { cells },
+        { symbols } )) =
   {
     file;
     name;
