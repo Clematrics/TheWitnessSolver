@@ -14,7 +14,8 @@ type t = {
   height : int;
       (** The height of the puzzle. All elements are guaranted to have their y
           coordinate in [0, height - 1] *)
-  paths_ : bool CoordMap.t;
+  graph : Graph.t;
+  (* paths_ : bool CoordMap.t; *)
       (** A (coordinates -> boolean) map describing where path intersections are
           and if they are usable. Be careful, if a coordinate is in [paths] and
           mapped to false, it means that their IS a path at this coordinate, but
@@ -27,11 +28,11 @@ type t = {
 
           Connections between paths are not described by this field, but by
           {!field:edges}. *)
-  points : CoordSet.t;  (** The set of junctions where a path can go through *)
+  (* points : CoordSet.t; *)  (** The set of junctions where a path can go through *)
   cuts : CoordSet.t;
       (** The set of points cutting a path, typically at the middle of
           PathVertical:Cut for instance. *)
-  edges : Edges.t;
+  (* edges : Edges.t; *)
       (** The set of non-directional edges linking two paths together. An edge
           can exist in this set even if it leads to a dead end. For instance, a
           PathHorizontal:Cut will generate two edges between the center and the
