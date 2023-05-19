@@ -1,5 +1,4 @@
 open Defs
-module CoordSet : Set.S with type elt = Coord.t
 module CoordMap : Map.S with type key = Coord.t
 module IntMap : Map.S with type key = Int.t
 

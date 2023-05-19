@@ -1,6 +1,5 @@
 open Defs
 open Log
-module CoordSet = Set.Make (Coord)
 module CoordMap = Map.Make (Coord)
 module IntMap = Map.Make (Int)
 
