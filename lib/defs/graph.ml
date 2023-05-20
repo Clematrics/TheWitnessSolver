@@ -32,6 +32,9 @@ let remove pos g =
     points = CoordSet.remove pos g.points;
   }
 
+let edge_through p g =
+  Edges.find_first_opt (fun e -> Edge.pass_through e p) g.edges
+
 let arity p g = Edges.cardinal (adjacent_edges p g)
 
 let arity_map g =
@@ -53,7 +56,6 @@ let remove_edge e g =
   { points; edges }
 
 let fold_points f g init = CoordSet.fold f g.points init
-
 let fold_edges f g init = Edges.fold f g.edges init
 
 let union { points; edges } g' =

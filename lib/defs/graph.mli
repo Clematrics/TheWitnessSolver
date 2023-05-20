@@ -30,6 +30,10 @@ val adjacent_edges : Coord.t -> t -> Edges.t
 (** [adjacent_edges p g] returns the set of edges adjacent to [p] in [g]. If the
     point [p] is not in the graph, [Edges.empty] is returned. *)
 
+val edge_through : Coord.t -> t -> Edge.t option
+(** [edge_through p g] returns [Some e] if there exists an edge [e] in [g] which
+    [p] passes through and [None] if there are no such edge. *)
+
 val arity : Coord.t -> t -> int
 (** [arity p g] returns the aroty of the point [p] in the graph [g], ie. the
     number of edges adjacent to [p]. If [p] is not in [g], 0 is returned. This
