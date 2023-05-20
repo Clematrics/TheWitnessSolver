@@ -36,7 +36,9 @@ let () =
                  Printf.sprintf "output/%s/%s.svg" filename Puzzle.(p.name)
                in
                Render.render ~path ~debug:true (new Render.Style.style) p;
-               let solution = Logic.solve p in
+               let problem = Solver.Problem.logic_problem_of p in
+               let module S = Solver.Z3Backend in
+               let solution = S.solve problem p in
                let path_solved =
                  Printf.sprintf "output/%s/%s_solved.svg" filename
                    Puzzle.(p.name)
