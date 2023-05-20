@@ -9,34 +9,36 @@ let other_end ((c, c') : t) p =
   else if c' = p then c
   else raise (Invalid_argument "The coordinates are not adjacent to this edge")
 
-let direction (c, c') = Coord.(c' +: ( -: ) c)
-(* let normalize (x, y) =
-     let rec pgcd x y = if y = 0 then x else pgcd y (x mod y) in
-     if x = 0 then (0, 1)
-     else if y = 0 then (1, 0)
-     else
-       let d = if x >= y then pgcd x y else pgcd y x in
-       (x / d, y / d)
-   in
-   let x, y = Coord.(normalize c' +: ( -: ) (normalize c)) in
-   if x = 0 then (x, abs y) else (abs x, y) *)
-
-let aligned (c, c') (d, d') =
-  let open Coord in
-  let x, y = c' +: ( -: ) c and x', y' = d' +: ( -: ) d in
-  let coeff a b =
-    if a = 0 && b = 0 then Some None
-    else if a = 0 || b == 0 then None
-    else Some (Some (float_of_int a /. float_of_int b))
-  in
-  (* None -> No multiple
-     Some None -> All possible multiples (both 0)
-     Some Some (coeff) -> coeff
+let pgcd ~keep_sign x y =
+  (* returns the biggest k (in absolute value) such that x = k*_ and y = k*_
+     if y is negative, k is negative
+     x = 0 or y = 0 <=> returns 0
   *)
-  match (coeff y y', coeff x x') with
-  | Some (Some coeff), Some (Some coeff') -> coeff -. coeff' < Float.epsilon
-  | Some _, Some None | Some None, Some _ -> true
-  | _, _ -> false
+  let rec inner high low = if low = 0 then high else inner low (high mod low) in
+  let k =
+    if abs x < abs y then inner (abs y) (abs x) else inner (abs x) (abs y)
+  in
+  if y < 0 && not keep_sign then -k else k
+
+let direction ?(directed = false) (c, c') =
+  let sign x = if x < 0 && directed then -1 else 1 in
+  let x, y = Coord.(c' -: c) in
+  if x = 0 && y = 0 then
+    raise (Invalid_argument "Null coordinate invalid for direction")
+  else if x = 0 then (0, sign y)
+  else if y = 0 then (sign x, 0)
+  else
+    let k = pgcd ~keep_sign:directed x y in
+    (x / k, y / k)
+
+let aligned e e' = direction e = direction e'
+
+let pass_through (c, c') pos =
+  if pos = c || pos = c' then true
+  else
+    let d = direction ~directed:true (c, pos)
+    and d' = direction ~directed:true (pos, c') in
+    d = d'
 
 let compare = compare
 
