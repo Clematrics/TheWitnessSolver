@@ -78,11 +78,11 @@ let ( ++? ) assertions = function
 
 let make_context puzzle =
   let junctions =
-    CoordSet.fold
+    Graph.fold_points
       (fun (x, y) ->
         let name = Printf.sprintf "path_(%i,%i)" x y in
         PosVar.add (x, y) (PathVariable name))
-      puzzle.points PosVar.empty
+      puzzle.logic_graph PosVar.empty
   and activated =
     CoordMap.fold
       (fun (x, y) _ ->
@@ -104,15 +104,10 @@ let make_context puzzle =
 (* TODO: currently does not support BlueYellowPaths: *)
 let from_puzzle context puzzle =
   let neighbors_of pos =
-    let neighbor_pos =
-      puzzle.edges
-      |> Edges.filter (Edge.is_adjacent pos)
-      |> Edges.elements
-      |> List.filter_map (fun e ->
-             let pos' = Edge.other_end e pos in
-             if CoordSet.mem pos' puzzle.points then Some pos' else None)
-    in
-    List.map (fun pos -> (pos, PosVar.find pos context.junctions)) neighbor_pos
+    Graph.adjacent_edges pos puzzle.logic_graph
+    |> Edges.elements
+    |> List.map (fun e -> Edge.other_end e pos)
+    |> List.map (fun pos -> (pos, PosVar.find pos context.junctions))
   in
   let assertions =
     []
