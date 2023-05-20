@@ -1,6 +1,5 @@
 open Defs
 open Log
-module CoordMap = Map.Make (Coord)
 module IntMap = Map.Make (Int)
 
 type t = {
@@ -9,6 +8,7 @@ type t = {
   properties : PropertySet.t;
   width : int;
   height : int;
+  logic_graph : Graph.t;
   graph : Graph.t;
   cuts_graph : Graph.t;
   starts : bool CoordMap.t;
@@ -34,6 +34,7 @@ type puzzle_graphs = {
 
 type puzzle_cells = { cells : CoordSet.t }
 type puzzle_symbs = { symbols : (Symbol.t * Color.t) CoordMap.t }
+type puzzle_optimized = { logic_graph : Graph.t }
 
 type _ under_construction =
   | Stage1 : puzzle_base -> [ `Stage1 ] under_construction
@@ -44,6 +45,13 @@ type _ under_construction =
   | Stage4 :
       puzzle_base * puzzle_graphs * puzzle_cells * puzzle_symbs
       -> [ `Stage4 ] under_construction
+  | Stage5 :
+      puzzle_base
+      * puzzle_graphs
+      * puzzle_cells
+      * puzzle_symbs
+      * puzzle_optimized
+      -> [ `Stage5 ] under_construction
 
 let make_get width height arr (x, y) =
   if x >= 0 && x < width && y >= 0 && y < height then arr.(x).(y) else None
@@ -77,7 +85,7 @@ let make_paths paths (Stage1 ({ width; height; _ } as base)) =
   in
   let convert_raw_path pos graphs raw_path =
     let new_edges = make_edges pos raw_path in
-    let add graph = graph |> Graph.add_edges new_edges |> Graph.add_point pos in
+    let add = Graph.add_edges new_edges in
     let graph, cuts_graph =
       match raw_path with
       | Start _ | End _ | Meet true | PathHorizontal true | PathVertical true ->
@@ -115,10 +123,32 @@ let make_paths paths (Stage1 ({ width; height; _ } as base)) =
         ends = IntMap.empty;
       }
   in
-  Stage2 (base, graphs)
+  let graph =
+    Graph.fold_edges Graph.remove_edge graphs.cuts_graph graphs.graph
+  in
+  Stage2 (base, { graphs with graph })
 
 let optimize (Stage4 (base, graphs, cells, symbols)) =
-  let graph =
+  let rec remove_deadends graph =
+    let deadends =
+      Graph.arity_map graph
+      |> CoordMap.filter (fun _ -> ( = ) 1)
+      |> CoordMap.filter (fun p _ ->
+             not
+               (CoordMap.mem p graphs.starts
+               || IntMap.exists (fun _ -> ( = ) p) graphs.ends))
+    in
+    if CoordMap.is_empty deadends then graph
+    else
+      graph
+      |> CoordMap.fold (fun p _ -> Graph.remove p) deadends
+      |> remove_deadends
+  in
+  let logic_graph =
+    graphs.graph
+    |> (* remove dead-ends *)
+    remove_deadends
+    |> (* fuse aligned edges adjacent to points with arity 2 *)
     Graph.fold_points
       (fun pos graph ->
         let adjacents = Graph.adjacent_edges pos graph in
@@ -135,9 +165,9 @@ let optimize (Stage4 (base, graphs, cells, symbols)) =
             graph |> Graph.remove pos |> Graph.add_edge (Edge.edge c c')
           else graph
         else graph)
-      graphs.graph graphs.graph
+      graphs.graph
   in
-  Stage4 (base, { graphs with graph }, cells, symbols)
+  Stage5 (base, graphs, cells, symbols, { logic_graph })
 
 (* finding cells : take all corners (path | start) and look for the following pattern
     P P P
@@ -150,7 +180,7 @@ let optimize (Stage4 (base, graphs, cells, symbols)) =
 *)
 let make_cells (Stage2 (base, graphs)) =
   let cells =
-    let mem coords = CoordSet.mem coords (Graph.points graphs.graph) in
+    let mem p = Graph.mem graphs.graph p || Graph.mem graphs.cuts_graph p in
     CoordSet.fold
       (fun coords cells ->
         let open Coord in
@@ -267,17 +297,19 @@ let validate ({ properties; width; height; ends; starts; _ } as puzzle) =
   puzzle
 
 let pack
-    (Stage4
+    (Stage5
       ( { file; name; properties; width; height },
         { graph; cuts_graph; starts; ends },
         { cells },
-        { symbols } )) =
+        { symbols },
+        { logic_graph } )) =
   {
     file;
     name;
     properties;
     width;
     height;
+    logic_graph;
     graph;
     cuts_graph;
     starts;

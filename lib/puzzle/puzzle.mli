@@ -1,5 +1,4 @@
 open Defs
-module CoordMap : Map.S with type key = Coord.t
 module IntMap : Map.S with type key = Int.t
 
 type t = {
@@ -14,29 +13,18 @@ type t = {
   height : int;
       (** The height of the puzzle. All elements are guaranted to have their y
           coordinate in [0, height - 1] *)
+  logic_graph : Graph.t;
+      (** The logical graph of the puzzle. It does not include the
+          cuts/dead-ends and edges leading to those. This is the optimised
+          version of [graph]. *)
   graph : Graph.t;
-  (* paths_ : bool CoordMap.t; *)
-      (** A (coordinates -> boolean) map describing where path intersections are
-          and if they are usable. Be careful, if a coordinate is in [paths] and
-          mapped to false, it means that their IS a path at this coordinate, but
-          it is not usable by the player or by any symmetric path (for instance
-          when there is a PathHorizontal:Cut). It is encoded this way to
-          simplify cell detections. Paths include starts and ends.
-
-          TODO: is it really necessary? Yes if we eventually want to guarantee
-          that both sides of edges are existing paths.
-
-          Connections between paths are not described by this field, but by
-          {!field:edges}. *)
-  (* points : CoordSet.t; *)  (** The set of junctions where a path can go through *)
-  cuts : CoordSet.t;
-      (** The set of points cutting a path, typically at the middle of
-          PathVertical:Cut for instance. *)
-  (* edges : Edges.t; *)
-      (** The set of non-directional edges linking two paths together. An edge
-          can exist in this set even if it leads to a dead end. For instance, a
-          PathHorizontal:Cut will generate two edges between the center and the
-          extremities. *)
+      (** The visual graph of the puzzle. It does not include the cuts/dead-ends
+          and edges leading to those. This is the non-optimised version of
+          [logic_graph]. *)
+  cuts_graph : Graph.t;
+      (** The set of edges and points which are necessary to visualise the
+          puzzle as it was described but are only dead-ends and cuts for the
+          logical puzzle. *)
   starts : bool CoordMap.t;
       (** A (coordinates -> boolean) map of starts. If a coordinate is mapped to
           false, it means that this start is not usable by the player, either
