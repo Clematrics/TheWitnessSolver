@@ -2,20 +2,26 @@ open Defs
 module EdgesVar = Map.Make (Edge)
 module PosSet = CoordSet
 module PosVar = CoordMap
-
 open Logic
+
 type _ quty += CoordTy : Coord.t quty
 type _ quty += BoolVarTy : bool var quty
 type _ quty += PathVarTy : path var quty
 type _ quty += CoordPathVarTy : (Coord.t * path var) quty
+type _ quty += CoordZoneVarTy : (Coord.t * zone var) quty
+type _ quty += EdgeBoolVarTy : (Edge.t * bool var) quty
 
 type context = {
   junctions : path var PosVar.t;
-  activated : bool var PosVar.t;
+  edges : bool var EdgesVar.t;
   (* Starts (usable by the player) & Ends positions *)
   starts : PosSet.t;
   ends : PosSet.t;
+  (* cells *)
+  cells_id : int PosVar.t;
+  cells_zone : zone var PosVar.t;
   (* symbols *)
+  activated : bool var PosVar.t;  (** Whether symbols are activated or not *)
   hexagons : Color.t PosVar.t;
 }
 
@@ -28,6 +34,13 @@ let make_context puzzle =
         let name = Printf.sprintf "path_(%i,%i)" x y in
         PosVar.add (x, y) (PathVariable name))
       puzzle.logic_graph PosVar.empty
+  and edges =
+    Graph.fold_edges
+      (fun edge ->
+        let (x, y), (x', y') = Edge.get edge in
+        let name = Printf.sprintf "edge_(%i,%i)->(%i,%i)" x y x' y' in
+        EdgesVar.add edge (BoolVariable name))
+      puzzle.logic_graph EdgesVar.empty
   and activated =
     CoordMap.fold
       (fun (x, y) _ ->
@@ -43,11 +56,50 @@ let make_context puzzle =
     puzzle.symbols
     |> CoordMap.filter_map (fun _ -> function
          | Symbol.Hexagon, color -> Some color | _ -> None)
+  and _, cells_id =
+    PosSet.fold
+      (fun (x, y) (next_id, vars) ->
+        (next_id + 1, PosVar.add (x, y) next_id vars))
+      puzzle.cells (0, PosVar.empty)
+  and cells_zone =
+    PosSet.fold
+      (fun (x, y) ->
+        let name = Printf.sprintf "cell_zone(%i,%i)" x y in
+        PosVar.add (x, y) (ZoneVariable name))
+      puzzle.cells PosVar.empty
   in
-  { junctions; activated; starts; ends; hexagons }
+  { junctions; edges; starts; ends; cells_id; cells_zone; activated; hexagons }
+
+let min_cells_neighbors context puzzle pos =
+  let offsets = [ (0, 1); (1, 0); (-1, 0); (0, -1) ] in
+  let rec make_ast zone = function
+    | [] -> zone
+    | offset :: l ->
+        let zone =
+          let open Coord in
+          let cell_offset = offset *: 2 in
+          let cell_neighbor_pos = pos +: cell_offset in
+          if CoordSet.mem cell_neighbor_pos puzzle.cells then
+            match Graph.edge_through (pos +: offset) puzzle.logic_graph with
+            | None -> zone
+            | Some edge ->
+                let neighbor_var =
+                  PosVar.find cell_neighbor_pos context.cells_zone
+                in
+                let edge_var = EdgesVar.find edge context.edges in
+                IfThenElse
+                  ( Not (Bool edge_var) &&& (zone >>> Zone neighbor_var),
+                    Zone neighbor_var,
+                    zone )
+          else zone
+        in
+        make_ast zone l
+  in
+  make_ast (Int (PosVar.find pos context.cells_id)) offsets
 
 (* TODO: currently does not support BlueYellowPaths: *)
 let from_puzzle context puzzle =
+  let min_cells_neighbors = min_cells_neighbors context puzzle in
   let neighbors_of pos =
     Graph.adjacent_edges pos puzzle.logic_graph
     |> Edges.elements
@@ -56,6 +108,13 @@ let from_puzzle context puzzle =
   in
   let assertions =
     []
+    ++ (* All junctions of kind NoPath have index 0 *)
+    Forall
+      ( PathVarTy,
+        context.junctions |> PosVar.bindings |> List.map snd,
+        fun var _ ->
+          (KindOf (Var var) === NoPath) KindTy
+          ==> (IndexOf (Var var) === Int 0) IntTy )
     ++ (* There exists a start which has value Player 0 *)
     Exists
       ( CoordTy,
@@ -106,6 +165,23 @@ let from_puzzle context puzzle =
                     (KindOf (Var junc) === KindOf (Var junc')) KindTy
                     &&& (IndexOf (Var junc) === IndexOf (Var junc') +++ Int 1)
                           IntTy ) )
+    ++ (* A path goes through an edge if and only if
+          the ends of this edge are of the same kind
+          and with indexes one apart *)
+    Forall
+      ( EdgeBoolVarTy,
+        EdgesVar.bindings context.edges,
+        fun (edge, edge_var) _ ->
+          let p, p' = Edge.get edge in
+          let p_var, p'_var =
+            PosVar.(find p context.junctions, find p' context.junctions)
+          in
+          (* No need to check if they are NoPath, since indexes of NoPath are always 0 *)
+          (KindOf (Var p_var) === KindOf (Var p'_var)) KindTy
+          &&& ((IndexOf (Var p_var) +++ Int 1 === IndexOf (Var p'_var)) IntTy
+              ||| (IndexOf (Var p_var) === IndexOf (Var p'_var) +++ Int 1) IntTy
+              )
+          <=> Bool edge_var )
     ++ (* All symbols are activated by default. TODO: support disable symbols *)
     Forall
       ( BoolVarTy,
@@ -119,15 +195,20 @@ let from_puzzle context puzzle =
           let junction = PosVar.find pos context.junctions
           and activated = PosVar.find pos context.activated in
           Bool activated ==> (KindOf (Var junction) =!= NoPath) KindTy )
-    ++?
-    if PropertySet.(inter puzzle.properties symmetry_properties |> is_empty)
-    then
-      Some
-        (Forall
-           ( PathVarTy,
-             PosVar.bindings context.junctions |> List.map snd,
-             fun var _ -> (KindOf (Var var) =!= Symmetric) KindTy ))
-    else None
+    ++? (if
+           PropertySet.(inter puzzle.properties symmetry_properties |> is_empty)
+         then
+           Some
+             (Forall
+                ( PathVarTy,
+                  PosVar.bindings context.junctions |> List.map snd,
+                  fun var _ -> (KindOf (Var var) =!= Symmetric) KindTy ))
+         else None)
+    ++ (* Forall cells, the cell zone is the minimum of the cell zone of its neighbor and its cell starting id *)
+    Forall
+      ( CoordZoneVarTy,
+        PosVar.bindings context.cells_zone,
+        fun (pos, cell) _ -> (Zone cell === min_cells_neighbors pos) IntTy )
   in
   assertions
 (* var chemin_passe_par_arête = liste d'arêtes entre paths et arêtes entre paths et start|end : chemin *)
@@ -191,10 +272,7 @@ let from_puzzle context puzzle =
    (* --- properties rules *)
 *)
 
-type t = {
-  context: context;
-  assertions: bool expr list
-}
+type t = { context : context; assertions : bool expr list }
 
 let logic_problem_of puzzle =
   let context = make_context puzzle in

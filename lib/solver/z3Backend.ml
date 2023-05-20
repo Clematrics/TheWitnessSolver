@@ -4,6 +4,7 @@ open Problem
 open Z3
 
 [@@@warning "-69"]
+
 type types = {
   (* Basic sorts *)
   bool_sort : Sort.sort;
@@ -89,23 +90,32 @@ let make_z3_vars ctxt types variables =
 
 let assertions_to_z3 ctxt types vars =
   let rec convert_int_term : path_index expr -> Expr.expr = function
+    | Int i -> Arithmetic.Integer.mk_numeral_i ctxt i
+    | Zone (ZoneVariable name) -> Var.find name vars
     | Add terms -> Arithmetic.mk_add ctxt (List.map convert_int_term terms)
     | Sub (l, r) ->
         Arithmetic.mk_sub ctxt [ convert_int_term l; convert_int_term r ]
-    | Int i -> Arithmetic.Integer.mk_numeral_i ctxt i
     | IndexOf path -> FuncDecl.apply types.get_index [ convert_path_term path ]
+    | IfThenElse (cond, l, r) ->
+        Boolean.mk_ite ctxt (convert cond) (convert_int_term l)
+          (convert_int_term r)
   and convert_kind_term = function
     | KindOf path -> FuncDecl.apply types.get_kind [ convert_path_term path ]
     | NoPath -> FuncDecl.apply types.make_no_path []
     | Player -> FuncDecl.apply types.make_player []
     | Symmetric -> FuncDecl.apply types.make_symmetric []
+    | IfThenElse (cond, l, r) ->
+        Boolean.mk_ite ctxt (convert cond) (convert_kind_term l)
+          (convert_kind_term r)
   and convert_path_term = function
     | Path (kind, index) ->
         FuncDecl.apply types.make_path
           [ convert_kind_term kind; convert_int_term index ]
     | Var (PathVariable name) -> Var.find name vars
-  in
-  let rec convert = function
+    | IfThenElse (cond, l, r) ->
+        Boolean.mk_ite ctxt (convert cond) (convert_path_term l)
+          (convert_path_term r)
+  and convert = function
     | False -> Boolean.mk_false ctxt
     | True -> Boolean.mk_true ctxt
     | Bool (BoolVariable name) -> Var.find name vars
@@ -124,6 +134,10 @@ let assertions_to_z3 ctxt types vars =
         Boolean.(mk_eq ctxt (convert_kind_term l) (convert_kind_term r))
     | Equal (PathTy, l, r) ->
         Boolean.(mk_eq ctxt (convert_path_term l) (convert_path_term r))
+    | Less (l, r) ->
+        Arithmetic.mk_lt ctxt (convert_int_term l) (convert_int_term r)
+    | IfThenElse (cond, l, r) ->
+        Boolean.mk_ite ctxt (convert cond) (convert l) (convert r)
     | And ls -> Boolean.mk_and ctxt (List.map convert ls)
     | Or ls -> Boolean.mk_or ctxt (List.map convert ls)
     | Xor (l, r) -> Boolean.mk_xor ctxt (convert l) (convert r)
@@ -201,6 +215,7 @@ let solve problem puzzle =
     | Player -> Format.fprintf fmt "Player"
     | Symmetric -> Format.fprintf fmt "Symmetric"
     | KindOf _ -> Format.fprintf fmt "KindOf ?Path?"
+    | IfThenElse _ -> Format.fprintf fmt "IfThenElse ?Path?"
   in
   let pp_bool fmt = function
     | true -> Format.fprintf fmt "true"
