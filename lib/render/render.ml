@@ -331,7 +331,7 @@ let end_layer style { ends; graph; _ } =
         |> Edges.choose
         |> Fun.flip Edge.other_end pos
       in
-      let di, dj = Coord.(pos' +: ( -: ) pos) in
+      let di, dj = Coord.(pos' -: pos) in
       let dir = V2.of_tuple (float_of_int di, float_of_int dj) in
       let path =
         V2.

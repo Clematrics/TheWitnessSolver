@@ -1,9 +1,11 @@
 type t = int * int
 
+let origin = 0,0
+
 let compare = compare
 let ( +: ) (x, y) (x', y') = (x + x', y + y')
 let ( *: ) (x, y) n = (n * x, n * y)
-let ( -: ) (x, y) = (-x, -y)
+let ( -: ) (x, y) (x', y') = (x - x', y - y')
 
 let all =
   [ (0, -1); (0, 1); (-1, -1); (1, 1); (-1, 0); (1, 0); (1, -1); (-1, 1) ]

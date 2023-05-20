@@ -1,9 +1,11 @@
 type t = int * int
 
+val origin : t
+
 val compare : t -> t -> int
 val ( +: ) : t -> t -> t
 val ( *: ) : t -> int -> t
-val ( -: ) : t -> t
+val ( -: ) : t -> t -> t
 val all : t list
 val adjacent : t list
 val horizontal : t list
