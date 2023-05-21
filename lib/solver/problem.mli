@@ -17,6 +17,8 @@ type context = {
   (* symbols *)
   activated : bool var PosVar.t;
   hexagons : Color.t PosVar.t;
+  squares : Color.t PosVar.t;
+  triangles : int PosVar.t;
 }
 
 type t = { context : context; assertions : bool expr list }

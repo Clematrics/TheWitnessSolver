@@ -9,6 +9,8 @@ type _ quty += BoolVarTy : bool var quty
 type _ quty += PathVarTy : path var quty
 type _ quty += CoordPathVarTy : (Coord.t * path var) quty
 type _ quty += CoordZoneVarTy : (Coord.t * zone var) quty
+type _ quty += CoordColorTy : (Coord.t * Color.t) quty
+type _ quty += CoordIntTy : (Coord.t * int) quty
 type _ quty += EdgeBoolVarTy : (Edge.t * bool var) quty
 
 type context = {
@@ -24,6 +26,8 @@ type context = {
   (* symbols *)
   activated : bool var PosVar.t;  (** Whether symbols are activated or not *)
   hexagons : Color.t PosVar.t;
+  squares : Color.t PosVar.t;
+  triangles : int PosVar.t;
 }
 
 open Puzzle
@@ -42,21 +46,11 @@ let make_context puzzle =
         let name = Printf.sprintf "edge_(%i,%i)->(%i,%i)" x y x' y' in
         EdgesVar.add edge (BoolVariable name))
       puzzle.logic_graph EdgesVar.empty
-  and activated =
-    CoordMap.fold
-      (fun (x, y) _ ->
-        let name = Printf.sprintf "symbol_activated(%i,%i)" x y in
-        PosVar.add (x, y) (BoolVariable name))
-      puzzle.symbols PosVar.empty
   and starts =
     CoordMap.fold
       (fun pos b -> if b then PosSet.add pos else Fun.id)
       puzzle.starts PosSet.empty
   and ends = IntMap.fold (fun _ pos -> PosSet.add pos) puzzle.ends PosSet.empty
-  and hexagons =
-    puzzle.symbols
-    |> CoordMap.filter_map (fun _ -> function
-         | Symbol.Hexagon, color -> Some color | _ -> None)
   and cells =
     PosSet.fold
       (fun (x, y) ->
@@ -74,6 +68,24 @@ let make_context puzzle =
         let name = Printf.sprintf "cell_zone(%i,%i)" x y in
         PosVar.add (x, y) (ZoneVariable name))
       puzzle.cells PosVar.empty
+  and activated =
+    CoordMap.fold
+      (fun (x, y) _ ->
+        let name = Printf.sprintf "symbol_activated(%i,%i)" x y in
+        PosVar.add (x, y) (BoolVariable name))
+      puzzle.symbols PosVar.empty
+  and hexagons =
+    puzzle.symbols
+    |> CoordMap.filter_map (fun _ -> function
+         | Symbol.Hexagon, color -> Some color | _ -> None)
+  and squares =
+    puzzle.symbols
+    |> CoordMap.filter_map (fun _ -> function
+         | Symbol.Square, color -> Some color | _ -> None)
+  and triangles =
+    puzzle.symbols
+    |> CoordMap.filter_map (fun _ -> function
+         | Symbol.Triangle i, _ -> Some i | _ -> None)
   in
   {
     junctions;
@@ -85,6 +97,8 @@ let make_context puzzle =
     cells_zone;
     activated;
     hexagons;
+    squares;
+    triangles;
   }
 
 (* TODO: currently does not support BlueYellowPaths: *)
@@ -232,6 +246,38 @@ let from_puzzle context puzzle =
               other_cells,
               fun (pos', cell') _ ->
                 (Zone cell === Zone cell') IntTy <=> Connected (pos, pos') ) )
+    ++ (* Square symbols: each pair of square with different colors are disconnected *)
+    Forall
+      ( CoordColorTy,
+        PosVar.bindings context.squares,
+        fun (pos, color) other_squares ->
+          Forall
+            ( CoordColorTy,
+              other_squares,
+              fun (pos', color') _ ->
+                if color != color' then Not (Connected (pos, pos')) else True )
+      )
+    ++ (* Triangles: each edge for which there is a path count as 1.
+          There sum must be equal to the triangles count. *)
+    Forall
+      ( CoordIntTy,
+        PosVar.bindings context.triangles,
+        fun (pos, i) _ ->
+          let open Coord in
+          let offsets = [ (0, 1); (1, 0); (-1, 0); (0, -1) ] in
+          let edges =
+            List.filter_map
+              (fun o -> Graph.edge_through (pos +: o) puzzle.logic_graph)
+              offsets
+          in
+          let count_exprs =
+            List.map
+              (fun edge ->
+                let edge_var = EdgesVar.find edge context.edges in
+                IfThenElse (Bool edge_var, Int 1, Int 0))
+              edges
+          in
+          (Add count_exprs === Int i) IntTy )
   in
 
   assertions
