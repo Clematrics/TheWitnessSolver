@@ -33,7 +33,7 @@ let remove pos g =
   }
 
 let edge_through p g =
-  Edges.find_first_opt (fun e -> Edge.pass_through e p) g.edges
+  g.edges |> Edges.filter (fun e -> Edge.pass_through e p) |> Edges.choose_opt
 
 let arity p g = Edges.cardinal (adjacent_edges p g)
 
@@ -65,19 +65,5 @@ let union { points; edges } g' =
   }
 
 let pp fmt { points; edges } =
-  let pp_set (type a b) (module S : Set.S with type elt = a and type t = b)
-      (pp : _ -> a -> _) fmt (set : S.t) =
-    let open S in
-    let rec pp_elts fmt set =
-      match choose_opt set with
-      | None -> Format.fprintf fmt ""
-      | Some elt ->
-          Format.fprintf fmt "%a@ ;@ %a" pp elt pp_elts (remove elt set)
-    in
-    Format.fprintf fmt "@[<hov 4>{@;%a@;}@]" pp_elts set
-  in
   Format.fprintf fmt "@[<hov 4>{@;points = %a;@;edges = %a@;}@]"
-    (pp_set (module CoordSet) Coord.pp)
-    points
-    (pp_set (module Edges) Edge.pp)
-    edges
+    (CoordSet.pp Coord.pp) points (Edges.pp Edge.pp) edges
