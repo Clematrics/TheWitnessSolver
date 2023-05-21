@@ -22,9 +22,14 @@ type types = {
   make_path : FuncDecl.func_decl;
   get_kind : FuncDecl.func_decl;
   get_index : FuncDecl.func_decl;
+  (* Cell sort & relations *)
+  cell_sort : Sort.sort;
+  cells_index : int PosVar.t;
+  neighbor_rel : FuncDecl.func_decl;
+  connected_rel : FuncDecl.func_decl;
 }
 
-let make_z3_types ctxt =
+let make_z3_types ctxt (pb_context : Problem.context) =
   (* Basic sorts *)
   let bool_sort = Boolean.mk_sort ctxt in
   let int_sort = Arithmetic.Integer.mk_sort ctxt in
@@ -53,6 +58,25 @@ let make_z3_types ctxt =
   let[@warning "-8"] [ get_kind; get_index ] =
     Tuple.get_field_decls path_sort
   in
+  let cell_symbols, cells_index =
+    let l, map, _ =
+      PosVar.fold
+        (fun cell (CellVariable var) (l, map, i) ->
+          let sym = Symbol.mk_string ctxt var in
+          (sym :: l, PosVar.add cell i map, i + 1))
+        pb_context.cells ([], PosVar.empty, 0)
+    in
+    (* the symbols are in in reversed order compared to the mapping of cells_index:
+       l = [s_n-1; ... ; s_2; s_1; s_0]. Thus, cell_symbols must be reversed. *)
+    (List.rev l, map)
+  in
+  let cell_sort_sym = Symbol.mk_string ctxt "cell_sort_symbol" in
+  let cell_sort = Enumeration.mk_sort ctxt cell_sort_sym cell_symbols in
+  let neighbor_rel =
+    FuncDecl.mk_func_decl_s ctxt "neighbor_rel" [ cell_sort; cell_sort ]
+      bool_sort
+  in
+  let connected_rel = Z3.Relation.mk_transitive_closure ctxt neighbor_rel in
   {
     bool_sort;
     int_sort;
@@ -67,6 +91,10 @@ let make_z3_types ctxt =
     make_path;
     get_kind;
     get_index;
+    cell_sort;
+    cells_index;
+    neighbor_rel;
+    connected_rel;
   }
 
 module Var = Map.Make (String)
@@ -80,15 +108,26 @@ let make_z3_vars ctxt types variables =
     let symbol = Symbol.mk_string ctxt var in
     Var.add var (Expr.mk_const ctxt symbol types.path_sort)
   in
+  let make_zone_var _ (ZoneVariable var) =
+    let symbol = Symbol.mk_string ctxt var in
+    Var.add var (Arithmetic.Integer.mk_const ctxt symbol)
+  in
   let var_makers =
     [
       PosVar.fold make_path_var variables.junctions;
+      EdgesVar.fold make_bool_var variables.edges;
       PosVar.fold make_bool_var variables.activated;
+      PosVar.fold make_zone_var variables.cells_zone;
     ]
   in
   List.fold_left (fun vars maker -> maker vars) Var.empty var_makers
 
 let assertions_to_z3 ctxt types vars =
+  let cell_cstr cell =
+    let idx = PosVar.find cell types.cells_index in
+    Enumeration.get_const types.cell_sort idx
+  in
+
   let rec convert_int_term : path_index expr -> Expr.expr = function
     | Int i -> Arithmetic.Integer.mk_numeral_i ctxt i
     | Zone (ZoneVariable name) -> Var.find name vars
@@ -144,6 +183,12 @@ let assertions_to_z3 ctxt types vars =
     | Imply (l, r) -> Boolean.mk_implies ctxt (convert l) (convert r)
     | Equiv (l, r) -> Boolean.mk_eq ctxt (convert l) (convert r)
     | Not l -> Boolean.mk_not ctxt (convert l)
+    | Neighbor (cell, cell') ->
+        let cstr = cell_cstr cell and cstr' = cell_cstr cell' in
+        FuncDecl.apply types.neighbor_rel [ cstr; cstr' ]
+    | Connected (cell, cell') ->
+        let cstr = cell_cstr cell and cstr' = cell_cstr cell' in
+        FuncDecl.apply types.connected_rel [ cstr; cstr' ]
     | Exists (_, domain, f) ->
         Boolean.mk_or ctxt (evaluate_quantifier domain f |> List.map convert)
     | Forall (_, domain, f) ->
@@ -156,6 +201,9 @@ let deserialize_bool_z3_expr expr =
   | L_FALSE -> false
   | L_TRUE -> true
   | _ -> assert false
+
+let deserialize_int_z3_expr expr =
+  expr |> Arithmetic.Integer.get_big_int |> Z.to_int
 
 let deserialize_path_z3_expr types expr =
   let kind_decl =
@@ -178,13 +226,14 @@ open Puzzle
 
 let solve problem puzzle =
   let ctxt = mk_context [] in
-  let types = make_z3_types ctxt in
+  let types = make_z3_types ctxt problem.context in
   let z3_vars = make_z3_vars ctxt types problem.context in
   let z3_assertions =
     List.map (assertions_to_z3 ctxt types z3_vars) problem.assertions
   in
+  (* z3_assertions |> List.map Expr.to_string |> List.iter (Printf.printf "%s\n"); *)
   let solver = mk_simple_solver ctxt in
-  let junc_val, act_val =
+  let junc_val, act_val, edges_val, cell_val =
     match check solver z3_assertions with
     | SATISFIABLE -> (
         match get_model solver with
@@ -198,6 +247,21 @@ let solve problem puzzle =
                   | Some expr ->
                       PosVar.add pos (deserialize_path_z3_expr types expr))
                 problem.context.junctions PosVar.empty
+            and edges =
+              EdgesVar.fold
+                (fun pos (BoolVariable var) ->
+                  match Model.eval model (Var.find var z3_vars) false with
+                  | None -> Fun.id
+                  | Some expr ->
+                      EdgesVar.add pos (deserialize_bool_z3_expr expr))
+                problem.context.edges EdgesVar.empty
+            and cells =
+              PosVar.fold
+                (fun pos (ZoneVariable var) ->
+                  match Model.eval model (Var.find var z3_vars) false with
+                  | None -> Fun.id
+                  | Some expr -> PosVar.add pos (deserialize_int_z3_expr expr))
+                problem.context.cells_zone PosVar.empty
             and activated =
               PosVar.fold
                 (fun pos (BoolVariable var) ->
@@ -206,7 +270,7 @@ let solve problem puzzle =
                   | Some expr -> PosVar.add pos (deserialize_bool_z3_expr expr))
                 problem.context.activated PosVar.empty
             in
-            (junctions, activated))
+            (junctions, activated, edges, cells))
     | UNKNOWN -> raise (Invalid_argument "Solver: Unknown")
     | UNSATISFIABLE -> raise (Invalid_argument "Solver: Unsatisfiable")
   in
@@ -221,6 +285,7 @@ let solve problem puzzle =
     | true -> Format.fprintf fmt "true"
     | false -> Format.fprintf fmt "false"
   in
+  let pp_int fmt = Format.fprintf fmt "%i" in
   let pp_path fmt (kind, index) =
     Format.fprintf fmt "%a : %i" pp_kind kind index
   in
@@ -231,13 +296,28 @@ let solve problem puzzle =
         Format.fprintf fmt "(%a): %a;@;%a" Coord.pp pos pp_val value
           (pp_map pp_val) (PosVar.remove pos map)
   in
+  let rec pp_edge_map pp_val fmt map =
+    match EdgesVar.min_binding_opt map with
+    | None -> Format.fprintf fmt ""
+    | Some (edge, value) ->
+        Format.fprintf fmt "(%a): %a;@;%a" Edge.pp edge pp_val value
+          (pp_edge_map pp_val) (EdgesVar.remove edge map)
+  in
   let out_file =
     open_out (Printf.sprintf "output/%s/%s.valuation" puzzle.file puzzle.name)
   in
   let fmt = Format.formatter_of_out_channel out_file in
   Format.fprintf fmt
-    "Junctions:@\n@[<v 2>%a@]@\nActivated symbols:@\n@[<v 2>%a@]"
-    (pp_map pp_path) junc_val (pp_map pp_bool) act_val;
+    "@[<v 2>Junctions:@;\
+     %a@]@\n\
+     @[<v 2>Edges:@;\
+     %a@]@\n\
+     @[<v 2>Cell zones:@;\
+     %a@]@\n\
+     @[<v 2>Activated symbols:@;\
+     %a@]@\n"
+    (pp_map pp_path) junc_val (pp_edge_map pp_bool) edges_val (pp_map pp_int)
+    cell_val (pp_map pp_bool) act_val;
   let path =
     let junc_bindings =
       PosVar.bindings junc_val |> List.map (fun (x, y) -> (y, x))

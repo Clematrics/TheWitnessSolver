@@ -1,5 +1,5 @@
 open Defs
-module EdgesVar : Map.S
+module EdgesVar : Map.S with type key = Edge.t
 module PosSet = CoordSet
 module PosVar = CoordMap
 open Logic
@@ -11,6 +11,7 @@ type context = {
   starts : PosSet.t;
   ends : PosSet.t;
   (* cells *)
+  cells : cell var PosVar.t;
   cells_id : int PosVar.t;
   cells_zone : zone var PosVar.t;
   (* symbols *)

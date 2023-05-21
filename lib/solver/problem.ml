@@ -18,6 +18,7 @@ type context = {
   starts : PosSet.t;
   ends : PosSet.t;
   (* cells *)
+  cells : cell var PosVar.t;
   cells_id : int PosVar.t;
   cells_zone : zone var PosVar.t;
   (* symbols *)
@@ -56,6 +57,12 @@ let make_context puzzle =
     puzzle.symbols
     |> CoordMap.filter_map (fun _ -> function
          | Symbol.Hexagon, color -> Some color | _ -> None)
+  and cells =
+    PosSet.fold
+      (fun (x, y) ->
+        let name = Printf.sprintf "cell(%i,%i)" x y in
+        PosVar.add (x, y) (CellVariable name))
+      puzzle.cells PosVar.empty
   and _, cells_id =
     PosSet.fold
       (fun (x, y) (next_id, vars) ->
@@ -68,38 +75,20 @@ let make_context puzzle =
         PosVar.add (x, y) (ZoneVariable name))
       puzzle.cells PosVar.empty
   in
-  { junctions; edges; starts; ends; cells_id; cells_zone; activated; hexagons }
-
-let min_cells_neighbors context puzzle pos =
-  let offsets = [ (0, 1); (1, 0); (-1, 0); (0, -1) ] in
-  let rec make_ast zone = function
-    | [] -> zone
-    | offset :: l ->
-        let zone =
-          let open Coord in
-          let cell_offset = offset *: 2 in
-          let cell_neighbor_pos = pos +: cell_offset in
-          if CoordSet.mem cell_neighbor_pos puzzle.cells then
-            match Graph.edge_through (pos +: offset) puzzle.logic_graph with
-            | None -> zone
-            | Some edge ->
-                let neighbor_var =
-                  PosVar.find cell_neighbor_pos context.cells_zone
-                in
-                let edge_var = EdgesVar.find edge context.edges in
-                IfThenElse
-                  ( Not (Bool edge_var) &&& (zone >>> Zone neighbor_var),
-                    Zone neighbor_var,
-                    zone )
-          else zone
-        in
-        make_ast zone l
-  in
-  make_ast (Int (PosVar.find pos context.cells_id)) offsets
+  {
+    junctions;
+    edges;
+    starts;
+    ends;
+    cells;
+    cells_id;
+    cells_zone;
+    activated;
+    hexagons;
+  }
 
 (* TODO: currently does not support BlueYellowPaths: *)
 let from_puzzle context puzzle =
-  let min_cells_neighbors = min_cells_neighbors context puzzle in
   let neighbors_of pos =
     Graph.adjacent_edges pos puzzle.logic_graph
     |> Edges.elements
@@ -206,10 +195,45 @@ let from_puzzle context puzzle =
          else None)
     ++ (* Forall cells, the cell zone is the minimum of the cell zone of its neighbor and its cell starting id *)
     Forall
+      ( CoordTy,
+        PosVar.bindings context.cells |> List.map fst,
+        fun pos other_cells ->
+          Forall
+            ( CoordTy,
+              other_cells,
+              fun pos' _ ->
+                let open Coord in
+                let offsets = [ (0, 1); (1, 0); (-1, 0); (0, -1) ] in
+                let neighbors =
+                  List.map (fun o -> (pos +: (o *: 2), o)) offsets
+                in
+                match List.assoc_opt pos' neighbors with
+                | None ->
+                    (* Not a neighbor *)
+                    Not (Neighbor (pos, pos'))
+                | Some edge_offset -> (
+                    match
+                      Graph.edge_through (pos +: edge_offset) puzzle.logic_graph
+                    with
+                    | None -> Neighbor (pos, pos')
+                    | Some edge ->
+                        let edge_var = EdgesVar.find edge context.edges in
+                        Not (Bool edge_var) <=> Neighbor (pos, pos')) ) )
+    ++ (* Two cells connected is equivalent to be in the same zone.
+          This must be a global property, against all pairs of cells.
+          Otherwise we can get a situation where there can be 3 zones
+          but only two identifiers {1,2} with the separation 1|2|1 *)
+    Forall
       ( CoordZoneVarTy,
         PosVar.bindings context.cells_zone,
-        fun (pos, cell) _ -> (Zone cell === min_cells_neighbors pos) IntTy )
+        fun (pos, cell) other_cells ->
+          Forall
+            ( CoordZoneVarTy,
+              other_cells,
+              fun (pos', cell') _ ->
+                (Zone cell === Zone cell') IntTy <=> Connected (pos, pos') ) )
   in
+
   assertions
 (* var chemin_passe_par_arête = liste d'arêtes entre paths et arêtes entre paths et start|end : chemin *)
 (* pour chaque chemin :

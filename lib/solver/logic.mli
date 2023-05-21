@@ -2,12 +2,14 @@ type path_kind = NoPath | Player | Symmetric
 type path_index = int
 type zone = int
 type path = path_kind * path_index
+type cell = Defs.Coord.t
 type _ ty = KindTy : path_kind ty | IntTy : int ty | PathTy : path ty
 
 type _ var =
   | BoolVariable : string -> bool var
   | PathVariable : string -> path var
   | ZoneVariable : string -> zone var
+  | CellVariable : string -> cell var
 
 (* Quantifier types *)
 type _ quty = ..
@@ -27,7 +29,7 @@ type _ expr =
   | KindOf : path expr -> path_kind expr
   | IndexOf : path expr -> path_index expr
   | Var : path var -> path expr
-  (* Cell zone expressions *)
+  (* Cells & cell zone expressions *)
   | Zone : zone var -> int expr
   (* Other expressions *)
   | IfThenElse : bool expr * 'a expr * 'a expr -> 'a expr
@@ -43,6 +45,9 @@ type _ expr =
   | Imply : bool expr * bool expr -> bool expr
   | Equiv : bool expr * bool expr -> bool expr
   | Not : bool expr -> bool expr
+  (* Relations *)
+  | Neighbor : cell * cell -> bool expr
+  | Connected : cell * cell -> bool expr
   (* Quantifiers *)
   | Exists : 'a quty * 'a list * ('a -> 'a list -> bool expr) -> bool expr
   | Forall : 'a quty * 'a list * ('a -> 'a list -> bool expr) -> bool expr
@@ -60,3 +65,8 @@ val ( ++? ) : 'a list -> 'a option -> 'a list
 val ( >>> ) : int expr -> int expr -> bool expr
 val ( <<< ) : int expr -> int expr -> bool expr
 val evaluate_quantifier : 'a list -> ('a -> 'a list -> 'b) -> 'b list
+
+val pp_int : Format.formatter -> int expr -> unit
+val pp_kind : Format.formatter -> path_kind expr -> unit
+val pp_path : Format.formatter -> path expr -> unit
+val pp : Format.formatter -> bool expr -> unit
