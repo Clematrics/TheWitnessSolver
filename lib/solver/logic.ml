@@ -3,7 +3,13 @@ type path_index = int
 type zone = int
 type path = path_kind * path_index
 type cell = Defs.Coord.t
-type _ ty = KindTy : path_kind ty | IntTy : int ty | PathTy : path ty
+type symbol = |
+
+type _ ty =
+  | KindTy : path_kind ty
+  | IntTy : int ty
+  | PathTy : path ty
+  | SymbolTy : symbol ty
 
 type _ var =
   | BoolVariable : string -> bool var
@@ -45,6 +51,9 @@ type _ expr =
   | Imply : bool expr * bool expr -> bool expr
   | Equiv : bool expr * bool expr -> bool expr
   | Not : bool expr -> bool expr
+  (* Symbols expressions *)
+  | LinkedSymbolOf : Defs.Coord.t -> symbol expr
+  | SymbolOf : Defs.Coord.t -> symbol expr
   (* Relations *)
   | Neighbor : cell * cell -> bool expr
   | Connected : cell * cell -> bool expr
@@ -109,6 +118,14 @@ and pp_int fmt = function
       fprintf fmt "@[<hov 0>If@ %a@;Then@ %a@;Else@ %a@]" pp cond pp_int e
         pp_int e'
 
+and pp_symbol fmt = function
+  | LinkedSymbolOf triad ->
+      fprintf fmt "LinkedSymbolOf by (%a)" Defs.Coord.pp triad
+  | SymbolOf pos -> fprintf fmt "SymbolOf (%a)" Defs.Coord.pp pos
+  | IfThenElse (cond, e, e') ->
+      fprintf fmt "@[<hov 0>If@ %a@;Then@ %a@;Else@ %a@]" pp cond pp_symbol e
+        pp_symbol e'
+
 and pp fmt = function
   | Less (l, r) -> fprintf fmt "%a < %a" pp_int l pp_int r
   | IfThenElse (cond, e, e') ->
@@ -119,9 +136,11 @@ and pp fmt = function
   | NotEqual (IntTy, l, r) -> fprintf fmt "%a != %a" pp_int l pp_int r
   | NotEqual (KindTy, l, r) -> fprintf fmt "%a != %a" pp_kind l pp_kind r
   | NotEqual (PathTy, l, r) -> fprintf fmt "%a != %a" pp_path l pp_path r
+  | NotEqual (SymbolTy, l, r) -> fprintf fmt "%a != %a" pp_symbol l pp_symbol r
   | Equal (IntTy, l, r) -> fprintf fmt "%a == %a" pp_int l pp_int r
   | Equal (KindTy, l, r) -> fprintf fmt "%a == %a" pp_kind l pp_kind r
   | Equal (PathTy, l, r) -> fprintf fmt "%a == %a" pp_path l pp_path r
+  | Equal (SymbolTy, l, r) -> fprintf fmt "%a == %a" pp_symbol l pp_symbol r
   | And exprs ->
       fprintf fmt "%a" (pp_print_list ~pp_sep:(pp_sep "/\\") pp) exprs
   | Or exprs -> fprintf fmt "%a" (pp_print_list ~pp_sep:(pp_sep "\\/") pp) exprs

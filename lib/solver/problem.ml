@@ -25,9 +25,13 @@ type context = {
   cells_zone : zone var PosVar.t;
   (* symbols *)
   activated : bool var PosVar.t;  (** Whether symbols are activated or not *)
+  satisfied : bool var PosVar.t;
+      (** Whether symbols have a property that is satisfied or not *)
   hexagons : Color.t PosVar.t;
   squares : Color.t PosVar.t;
+  stars : Color.t PosVar.t;
   triangles : int PosVar.t;
+  triads : Color.t PosVar.t;
 }
 
 open Puzzle
@@ -74,6 +78,12 @@ let make_context puzzle =
         let name = Printf.sprintf "symbol_activated(%i,%i)" x y in
         PosVar.add (x, y) (BoolVariable name))
       puzzle.symbols PosVar.empty
+  and satisfied =
+    CoordMap.fold
+      (fun (x, y) _ ->
+        let name = Printf.sprintf "symbol_satisfied(%i,%i)" x y in
+        PosVar.add (x, y) (BoolVariable name))
+      puzzle.symbols PosVar.empty
   and hexagons =
     puzzle.symbols
     |> CoordMap.filter_map (fun _ -> function
@@ -82,10 +92,18 @@ let make_context puzzle =
     puzzle.symbols
     |> CoordMap.filter_map (fun _ -> function
          | Symbol.Square, color -> Some color | _ -> None)
+  and stars =
+    puzzle.symbols
+    |> CoordMap.filter_map (fun _ -> function
+         | Symbol.Star, color -> Some color | _ -> None)
   and triangles =
     puzzle.symbols
     |> CoordMap.filter_map (fun _ -> function
          | Symbol.Triangle i, _ -> Some i | _ -> None)
+  and triads =
+    puzzle.symbols
+    |> CoordMap.filter_map (fun _ -> function
+         | Symbol.Triad, color -> Some color | _ -> None)
   in
   {
     junctions;
@@ -96,9 +114,12 @@ let make_context puzzle =
     cells_id;
     cells_zone;
     activated;
+    satisfied;
     hexagons;
     squares;
+    stars;
     triangles;
+    triads;
   }
 
 (* TODO: currently does not support BlueYellowPaths: *)
@@ -110,6 +131,7 @@ let from_puzzle context puzzle =
     |> List.map (fun pos -> (pos, PosVar.find pos context.junctions))
   in
   let assertions =
+    (* ---------- PATH RULES ---------- *)
     []
     ++ (* All junctions of kind NoPath have index 0 *)
     Forall
@@ -185,29 +207,17 @@ let from_puzzle context puzzle =
               ||| (IndexOf (Var p_var) === IndexOf (Var p'_var) +++ Int 1) IntTy
               )
           <=> Bool edge_var )
-    ++ (* All symbols are activated by default. TODO: support disable symbols *)
-    Forall
-      ( BoolVarTy,
-        PosVar.bindings context.activated |> List.map snd,
-        fun var _ -> Bool var )
-    ++ (* Hexagon rules. TODO: support BlueYellow property *)
-    Forall
-      ( CoordTy,
-        PosVar.bindings context.hexagons |> List.map fst,
-        fun pos _ ->
-          let junction = PosVar.find pos context.junctions
-          and activated = PosVar.find pos context.activated in
-          Bool activated ==> (KindOf (Var junction) =!= NoPath) KindTy )
-    ++? (if
-           PropertySet.(inter puzzle.properties symmetry_properties |> is_empty)
-         then
-           Some
-             (Forall
-                ( PathVarTy,
-                  PosVar.bindings context.junctions |> List.map snd,
-                  fun var _ -> (KindOf (Var var) =!= Symmetric) KindTy ))
-         else None)
-    ++ (* Forall cells, the cell zone is the minimum of the cell zone of its neighbor and its cell starting id *)
+    ++? (* If there are no symmetry properties, no path must be of kind Symmetric *)
+    (if PropertySet.(inter puzzle.properties symmetry_properties |> is_empty)
+     then
+       Some
+         (Forall
+            ( PathVarTy,
+              PosVar.bindings context.junctions |> List.map snd,
+              fun var _ -> (KindOf (Var var) =!= Symmetric) KindTy ))
+     else None)
+    ++ (* ---------- CONNECTIONS, CELL & ZONE RULES ----------
+          Forall cells, the cell zone is the minimum of the cell zone of its neighbor and its cell starting id *)
     Forall
       ( CoordTy,
         PosVar.bindings context.cells |> List.map fst,
@@ -217,7 +227,7 @@ let from_puzzle context puzzle =
               other_cells,
               fun pos' _ ->
                 let open Coord in
-                let offsets = [ (0, 1); (1, 0); (-1, 0); (0, -1) ] in
+                let offsets = Coord.adjacent in
                 let neighbors =
                   List.map (fun o -> (pos +: (o *: 2), o)) offsets
                 in
@@ -246,7 +256,84 @@ let from_puzzle context puzzle =
               other_cells,
               fun (pos', cell') _ ->
                 (Zone cell === Zone cell') IntTy <=> Connected (pos, pos') ) )
-    ++ (* Square symbols: each pair of square with different colors are disconnected *)
+    ++ (* All cells are also connected to points around if no path goes through *)
+    Forall
+      ( CoordTy,
+        PosVar.bindings context.cells |> List.map fst,
+        fun pos _ ->
+          let open Coord in
+          let offsets = Coord.all in
+          let rels =
+            List.map
+              (fun o ->
+                let pos' = pos +: o in
+                match PosVar.find_opt pos' context.junctions with
+                | Some junc ->
+                    (* A junction is at this point *)
+                    Neighbor (pos, pos')
+                    &&& Neighbor (pos', pos)
+                    <=> (KindOf (Var junc) === NoPath) KindTy
+                | None -> (
+                    (* No point where a path can go through at this offset. Looking for an edge. *)
+                    match Graph.edge_through pos' puzzle.logic_graph with
+                    | None ->
+                        Neighbor (pos, pos') &&& Neighbor (pos', pos)
+                        (* No edge, so those points are always connected *)
+                    | Some edge ->
+                        let edge_var = EdgesVar.find edge context.edges in
+                        Not (Bool edge_var)
+                        <=> (Neighbor (pos, pos') &&& Neighbor (pos', pos))))
+              offsets
+          in
+          And rels )
+    (* TODO: relations:
+       make false neighbor relation between all couple of non processed junctions / edges
+       use a pre-computed set of positions to do this, with properties on how those points relate to each other
+       do the same in Z3 *)
+    ++ (* ---------- SYMBOL RULES ----------
+           All symbols must be satisfied. *)
+    Forall
+      ( BoolVarTy,
+        PosVar.bindings context.satisfied |> List.map snd,
+        fun var _ -> Bool var )
+    ++ (* A symbol is satisfied if and only if it is activated or (exclusive or)
+          if it is choosen by one of the connected triad to be satisfied *)
+    Forall
+      ( CoordTy,
+        PosVar.bindings context.satisfied |> List.map fst,
+        fun pos _ ->
+          Bool (PosVar.find pos context.satisfied)
+          <=> Xor
+                ( Bool (PosVar.find pos context.activated),
+                  Exists
+                    ( CoordTy,
+                      PosVar.bindings context.triads |> List.map fst,
+                      fun pos_triad _ ->
+                        Bool (PosVar.find pos_triad context.activated)
+                        &&& Connected (pos, pos_triad)
+                        &&& (LinkedSymbolOf pos_triad === SymbolOf pos) SymbolTy
+                    ) ) )
+    ++ (* Two activated triads cannot satisfy the same symbol *)
+    Forall
+      ( CoordTy,
+        PosVar.bindings context.triads |> List.map fst,
+        fun pos triads ->
+          Forall
+            ( CoordTy,
+              triads,
+              fun pos' _ ->
+                Bool (PosVar.find pos context.activated)
+                &&& Bool (PosVar.find pos' context.activated)
+                ==> (LinkedSymbolOf pos =!= LinkedSymbolOf pos') SymbolTy ) )
+    ++ (* Hexagon rules. TODO: support BlueYellow property *)
+    Forall
+      ( CoordTy,
+        PosVar.bindings context.hexagons |> List.map fst,
+        fun pos _ ->
+          let junction = PosVar.find pos context.junctions
+          and activated = PosVar.find pos context.activated in
+          Bool activated <=> (KindOf (Var junction) =!= NoPath) KindTy )
+    ++ (* Square symbols: (TODO: add activated condition) each pair of square with different colors are disconnected *)
     Forall
       ( CoordColorTy,
         PosVar.bindings context.squares,
@@ -257,7 +344,7 @@ let from_puzzle context puzzle =
               fun (pos', color') _ ->
                 if color != color' then Not (Connected (pos, pos')) else True )
       )
-    ++ (* Triangles: each edge for which there is a path count as 1.
+    ++ (* Triangles: (TODO: add activated condition) each edge for which there is a path count as 1.
           There sum must be equal to the triangles count. *)
     Forall
       ( CoordIntTy,
@@ -277,70 +364,11 @@ let from_puzzle context puzzle =
                 IfThenElse (Bool edge_var, Int 1, Int 0))
               edges
           in
-          (Add count_exprs === Int i) IntTy )
+          Bool (PosVar.find pos context.activated)
+          <=> (Add count_exprs === Int i) IntTy )
   in
 
   assertions
-(* var chemin_passe_par_arête = liste d'arêtes entre paths et arêtes entre paths et start|end : chemin *)
-(* pour chaque chemin :
-    |{ensemble des paires de chemins connectés}| <= 1
-    i.e.
-    forall x in neighbors,
-         (x => \/ neighbors \ x)
-      && forall y in neighbors \ x, x && y => not \/ neighbors \ {x, y} *)
-(* exists start. start *)
-(* exists end. end *)
-
-(* une variable par (path | start | end) du layout
-    pouvoir retrouver les coordonnées à partir d'une variable? et inversement
-
-    deux éléments connectés -> variables nav connectées
-    if not BlueYellowPath then
-      type path = bool
-     else
-      type path = NoPath (false) | Blue | Yellow
-
-   (* --- general rules *)
-
-    path => deux nav connectés = path
-    start => un nav connecté = meet
-    end => un nav connecté = meet
-
-    exist start. start
-    exist end. end
-
-   (* --- symbols rules *)
-
-   (* hexagon *)
-
-   hexagon active => hexagon color is Any => (nav under hex != NoPath)
-   hexagon active => color is not Any => (nav under hex = hex color)
-
-   (* square *)
-
-   each cell as a variable
-   a path between to cells connect the cells
-   type cell-square = color != Any
-
-   path != NoPath => connection désactivée
-   color (cell connectées /\ connection active) = cell color
-
-   square active => cell = square color
-
-   (* star *)
-
-   TODO
-
-   (* shape *)
-
-   TODO
-
-   (* triad *)
-
-   TODO
-
-   (* --- properties rules *)
-*)
 
 type t = { context : context; assertions : bool expr list }
 

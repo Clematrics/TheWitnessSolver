@@ -27,9 +27,14 @@ type types = {
   cells_index : int PosVar.t;
   neighbor_rel : FuncDecl.func_decl;
   connected_rel : FuncDecl.func_decl;
+  (* Symbols *)
+  symbol_sort : Sort.sort;
+  symbol_index : int PosVar.t;
+  symbol_cstrs : Expr.expr PosVar.t;
+  linked_symbols : Expr.expr PosVar.t;
 }
 
-let make_z3_types ctxt (pb_context : Problem.context) =
+let make_z3_types ctxt (pb_context : Problem.context) (puzzle : Puzzle.t) =
   (* Basic sorts *)
   let bool_sort = Boolean.mk_sort ctxt in
   let int_sort = Arithmetic.Integer.mk_sort ctxt in
@@ -70,13 +75,48 @@ let make_z3_types ctxt (pb_context : Problem.context) =
        l = [s_n-1; ... ; s_2; s_1; s_0]. Thus, cell_symbols must be reversed. *)
     (List.rev l, map)
   in
-  let cell_sort_sym = Symbol.mk_string ctxt "cell_sort_symbol" in
+  let cell_sort_sym = Symbol.mk_string ctxt "cell_sort" in
   let cell_sort = Enumeration.mk_sort ctxt cell_sort_sym cell_symbols in
   let neighbor_rel =
     FuncDecl.mk_func_decl_s ctxt "neighbor_rel" [ cell_sort; cell_sort ]
       bool_sort
   in
   let connected_rel = Z3.Relation.mk_transitive_closure ctxt neighbor_rel in
+  let symbol_symbols, symbol_index =
+    let l, map, _ =
+      PosVar.fold
+        (fun pos (symbol, _) (l, map, i) ->
+          Format.fprintf Format.str_formatter "%s(%a)"
+            (Defs.Symbol.to_string symbol)
+            Defs.Coord.pp pos;
+          let str = Format.flush_str_formatter () in
+          let sym = Symbol.mk_string ctxt str in
+          (sym :: l, PosVar.add pos i map, i + 1))
+        puzzle.symbols ([], PosVar.empty, 0)
+    in
+    (* the symbols are in in reversed order compared to the mapping of cells_index:
+       l = [s_n-1; ... ; s_2; s_1; s_0]. Thus, cell_symbols must be reversed. *)
+    (List.rev l, map)
+  in
+  let symbol_sort_sym = Symbol.mk_string ctxt "symbol_sort" in
+  let symbol_sort = Enumeration.mk_sort ctxt symbol_sort_sym symbol_symbols in
+  let symbol_cstrs =
+    PosVar.map (Enumeration.get_const symbol_sort) symbol_index
+  in
+  let linked_symbols =
+    PosVar.fold
+      (fun pos _ ->
+        Format.fprintf Format.str_formatter "linked_symbol_of(%a)" Defs.Coord.pp
+          pos;
+        let str = Format.flush_str_formatter () in
+        let expr = Expr.mk_const_s ctxt str symbol_sort in
+        PosVar.add pos expr)
+      (PosVar.union
+         (fun _ _ _ ->
+           assert false (* there are different symbols at the same position *))
+         pb_context.triads pb_context.stars)
+      PosVar.empty
+  in
   {
     bool_sort;
     int_sort;
@@ -95,6 +135,10 @@ let make_z3_types ctxt (pb_context : Problem.context) =
     cells_index;
     neighbor_rel;
     connected_rel;
+    symbol_sort;
+    symbol_index;
+    symbol_cstrs;
+    linked_symbols;
   }
 
 module Var = Map.Make (String)
@@ -154,6 +198,12 @@ let assertions_to_z3 ctxt types vars =
     | IfThenElse (cond, l, r) ->
         Boolean.mk_ite ctxt (convert cond) (convert_path_term l)
           (convert_path_term r)
+  and convert_symbol_term = function
+    | SymbolOf pos -> PosVar.find pos types.symbol_cstrs
+    | LinkedSymbolOf pos -> PosVar.find pos types.linked_symbols
+    | IfThenElse (cond, l, r) ->
+        Boolean.mk_ite ctxt (convert cond) (convert_symbol_term l)
+          (convert_symbol_term r)
   and convert = function
     | False -> Boolean.mk_false ctxt
     | True -> Boolean.mk_true ctxt
@@ -167,12 +217,18 @@ let assertions_to_z3 ctxt types vars =
     | NotEqual (PathTy, l, r) ->
         Boolean.(
           mk_not ctxt (mk_eq ctxt (convert_path_term l) (convert_path_term r)))
+    | NotEqual (SymbolTy, l, r) ->
+        Boolean.(
+          mk_not ctxt
+            (mk_eq ctxt (convert_symbol_term l) (convert_symbol_term r)))
     | Equal (IntTy, l, r) ->
         Boolean.(mk_eq ctxt (convert_int_term l) (convert_int_term r))
     | Equal (KindTy, l, r) ->
         Boolean.(mk_eq ctxt (convert_kind_term l) (convert_kind_term r))
     | Equal (PathTy, l, r) ->
         Boolean.(mk_eq ctxt (convert_path_term l) (convert_path_term r))
+    | Equal (SymbolTy, l, r) ->
+        Boolean.(mk_eq ctxt (convert_symbol_term l) (convert_symbol_term r))
     | Less (l, r) ->
         Arithmetic.mk_lt ctxt (convert_int_term l) (convert_int_term r)
     | IfThenElse (cond, l, r) ->
@@ -226,7 +282,7 @@ open Puzzle
 
 let solve problem puzzle =
   let ctxt = mk_context [] in
-  let types = make_z3_types ctxt problem.context in
+  let types = make_z3_types ctxt problem.context puzzle in
   let z3_vars = make_z3_vars ctxt types problem.context in
   let z3_assertions =
     List.map (assertions_to_z3 ctxt types z3_vars) problem.assertions

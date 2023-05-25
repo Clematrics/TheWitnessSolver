@@ -16,9 +16,12 @@ type context = {
   cells_zone : zone var PosVar.t;
   (* symbols *)
   activated : bool var PosVar.t;
+  satisfied : bool var PosVar.t;
   hexagons : Color.t PosVar.t;
   squares : Color.t PosVar.t;
+  stars : Color.t PosVar.t;
   triangles : int PosVar.t;
+  triads : Color.t PosVar.t;
 }
 
 type t = { context : context; assertions : bool expr list }
