@@ -38,13 +38,15 @@ let () =
                Render.render ~path ~debug:true (new Render.Style.style) p;
                let problem = Solver.Problem.logic_problem_of p in
                let module S = Solver.Z3Backend in
-               let solution = S.solve problem p in
-               let path_solved =
-                 Printf.sprintf "output/%s/%s_solved.svg" filename
-                   Puzzle.(p.name)
-               in
-               Render.render ~path:path_solved ~solution
-                 (new Render.Style.style)
-                 p))
+               try
+                 let solution = S.solve problem p in
+                 let path_solved =
+                   Printf.sprintf "output/%s/%s_solved.svg" filename
+                     Puzzle.(p.name)
+                 in
+                 Render.render ~path:path_solved ~solution
+                   (new Render.Style.style)
+                   p
+               with Invalid_argument _ -> Printf.printf "Unsat\n%!"))
       !input_files
   with e -> Trax.wrap_with_stack_trace e |> Trax.print stderr
